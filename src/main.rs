@@ -58,8 +58,8 @@ impl Parameters {
         let events = [Event::Immigration, Event::Death, Event::Birth];
         let event = events[wi.sample(&mut rng)];
         match event {
-            Event::Death => -1 as i32,
-            Event::Immigration => 1 as i32,
+            Event::Death => -1_i32,
+            Event::Immigration => 1_i32,
             Event::Birth => self.sample_child(&mut rng) as i32,
         }
     }
@@ -102,7 +102,7 @@ fn sample_branching_at_time(params: &Parameters, n0: u32, t: f64) -> u32 {
     loop {
         let rate = params.rate(n as u32);
         if rate == 0. {
-            return 0 as u32;
+            return 0_u32;
         }
         let expd = Exp::new(rate).unwrap();
         let min_time = now + expd.sample(&mut rng);

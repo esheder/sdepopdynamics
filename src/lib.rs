@@ -1,13 +1,14 @@
 use rand::prelude::*;
 use rand_distr::{Exp, Normal, WeightedIndex};
 
-struct Parameters {
-    a1: f64,
-    a2: f64,
-    b1: f64,
-    b2: f64,
-    I: f64,
-    multiplicity: Vec<f64>,
+#[allow(non_snake_case)]
+pub struct Parameters {
+    pub a1: f64,
+    pub a2: f64,
+    pub b1: f64,
+    pub b2: f64,
+    pub I: f64,
+    pub multiplicity: Vec<f64>,
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -65,13 +66,18 @@ impl Parameters {
     }
 }
 
-fn sample_sde_at_time(params: &Parameters, n0: u32, t: f64, dt: f64) -> f64 {
+pub fn sample_sde_at_time<R: Rng>(
+    params: &Parameters,
+    n0: u32,
+    t: f64,
+    dt: f64,
+    mut rng: R,
+) -> f64 {
     let steps = (t / dt) as u32;
     let rem = t - (steps as f64) * dt;
     let mut n: f64 = n0 as f64;
     let barnu = params.barnu();
     let barnu2 = params.barnu2();
-    let mut rng = thread_rng();
     let normd = Normal::new(0., f64::sqrt(dt)).unwrap();
     for _ in 0..steps {
         let birth = params.birth(n);
@@ -95,10 +101,9 @@ fn sample_sde_at_time(params: &Parameters, n0: u32, t: f64, dt: f64) -> f64 {
     n
 }
 
-fn sample_branching_at_time(params: &Parameters, n0: u32, t: f64) -> u32 {
+pub fn sample_branching_at_time<R: Rng>(params: &Parameters, n0: u32, t: f64, mut rng: R) -> u32 {
     let mut now = 0.;
     let mut n: i32 = n0 as i32;
-    let mut rng = thread_rng();
     loop {
         let rate = params.rate(n as u32);
         if rate == 0. {
@@ -116,17 +121,36 @@ fn sample_branching_at_time(params: &Parameters, n0: u32, t: f64) -> u32 {
     }
 }
 
-fn main() {
-    let p = Parameters {
-        a1: 10.,
-        a2: 20.,
-        b1: 0.,
-        b2: 0.,
-        I: 3000.,
-        multiplicity: vec![0.5, 0.5],
-    };
-    let sampd = sample_branching_at_time(&p, 30, 20.);
-    let sampds = sample_sde_at_time(&p, 30, 20., 1e-4);
-    println!("Sampled to be {}", sampd);
-    println!("Sampled to be {}", sampds);
+#[cfg(test)]
+mod tests {
+
+    use rand::prelude::*;
+
+    #[test]
+    fn zero_population_branching_no_immigration_is_zero() {
+        let p = super::Parameters {
+            a1: 1.,
+            a2: 1.,
+            b1: 1.,
+            b2: 1.,
+            I: 0.,
+            multiplicity: vec![1.],
+        };
+        let pop = super::sample_branching_at_time(&p, 0, 20., thread_rng());
+        assert_eq!(pop, 0);
+    }
+
+    #[test]
+    fn zero_population_sde_no_immigration_is_zero() {
+        let p = super::Parameters {
+            a1: 1.,
+            a2: 1.,
+            b1: 1.,
+            b2: 1.,
+            I: 0.,
+            multiplicity: vec![1.],
+        };
+        let pop = super::sample_sde_at_time(&p, 0, 20., 1e-4, thread_rng());
+        assert_eq!(pop, 0.);
+    }
 }

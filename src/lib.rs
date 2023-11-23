@@ -1,15 +1,20 @@
 use rand::prelude::*;
 use rand_distr::{Exp, Normal, WeightedIndex};
-use std::rc::Rc;
+use serde::{Deserialize, Serialize};
+use std::fs::read_to_string;
+use std::path::Path;
+use std::fmt;
+use serde_json;
 
 #[allow(non_snake_case)]
+#[derive(Serialize, Deserialize)]
 pub struct Parameters {
     pub a1: f64,
     pub a2: f64,
     pub b1: f64,
     pub b2: f64,
     pub I: f64,
-    pub multiplicity: Rc<[f64]>,
+    pub multiplicity: Vec<f64>,
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -20,6 +25,11 @@ enum Event {
 }
 
 impl Parameters {
+    pub fn from_json_file<P: AsRef<Path>>(path: P) -> Parameters {
+        let s = read_to_string(path).expect("Path could not be opened");
+        serde_json::from_str(s.as_str()).expect("JSON parsing error in {path}")
+    }
+
     pub fn alpha<N: Into<f64> + Copy>(&self, n: N) -> f64 {
         self.barnu() * self.birth(n) - self.death(n)
     }
@@ -68,6 +78,12 @@ impl Parameters {
             Event::Immigration => 1_i32,
             Event::Birth => self.sample_child(rng) as i32,
         }
+    }
+}
+
+impl fmt::Display for Parameters {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Parameters(a1: {}, a2: {}, b1: {}, b2: {}, I: {})", self.a1, self.a2, self.b1, self.b2, self.I)
     }
 }
 
@@ -126,29 +142,30 @@ pub fn sample_branching_at_time<R: Rng>(params: &Parameters, n0: u32, t: f64, rn
     }
 }
 
-
 pub fn sample_at_times<F, N1, N2, N3>(n0: N3, times: &[f64], mut f: F) -> Vec<f64>
-where F: FnMut(N1, f64) -> N2,
-      N1: Into<f64> + Copy,
-      N2: Into<N1>,
-      N3: Into<N1>,
+where
+    F: FnMut(N1, f64) -> N2,
+    N1: Into<f64> + Copy,
+    N2: Into<N1>,
+    N3: Into<N1>,
 {
     let mut now = 0.;
-    let mut n: N1 = n0.into() ;
-    times.iter().map(|x| {
-        let dt = x - now;
-        now = *x;
-        n = f(n, dt).into();
-        n.into()
-    }).collect()
+    let mut n: N1 = n0.into();
+    times
+        .iter()
+        .map(|x| {
+            let dt = x - now;
+            now = *x;
+            n = f(n, dt).into();
+            n.into()
+        })
+        .collect()
 }
-
 
 #[cfg(test)]
 mod tests {
 
     use rand::prelude::*;
-    use std::rc::Rc;
 
     #[test]
     fn zero_population_branching_no_immigration_is_zero() {
@@ -158,7 +175,7 @@ mod tests {
             b1: 1.,
             b2: 1.,
             I: 0.,
-            multiplicity: Rc::new([1.]),
+            multiplicity: vec![1.],
         };
         let pop = super::sample_branching_at_time(&p, 0, 20., &mut thread_rng());
         assert_eq!(pop, 0);
@@ -172,7 +189,7 @@ mod tests {
             b1: 1.,
             b2: 1.,
             I: 0.,
-            multiplicity: Rc::new([1.]),
+            multiplicity: vec![1.],
         };
         let pop = super::sample_sde_at_time(&p, 0, 20., 1e-4, &mut thread_rng());
         assert_eq!(pop, 0.);
@@ -186,25 +203,25 @@ mod tests {
             b1: 1e-8,
             b2: 1e-4,
             I: 400.,
-            multiplicity: Rc::new([0.25, 0.75]),
+            multiplicity: vec![0.25, 0.75],
         };
-        let sde = |x: f64, y| {super::sample_sde_at_time(&p, x, y, 1e-4, &mut thread_rng())};
+        let sde = |x: f64, y| super::sample_sde_at_time(&p, x, y, 1e-4, &mut thread_rng());
         let times = [10., 20., 30., 40., 50.];
         let pop = super::sample_at_times(5000_u32, &times, sde);
         assert_eq!(pop.len(), times.len());
     }
 
     #[test]
-    fn sample_size_matches_times_branching(){
+    fn sample_size_matches_times_branching() {
         let p = super::Parameters {
             a1: 1.,
             a2: 1.,
             b1: 1e-8,
             b2: 1e-4,
             I: 400.,
-            multiplicity: Rc::new([0.25, 0.75]),
+            multiplicity: vec![0.25, 0.75],
         };
-        let branch = |x, y| {super::sample_branching_at_time(&p, x, y, &mut thread_rng())};
+        let branch = |x, y| super::sample_branching_at_time(&p, x, y, &mut thread_rng());
         let times = [10., 20., 30., 40., 50.];
         let pop = super::sample_at_times(5000_u32, &times, branch);
         assert_eq!(pop.len(), times.len());

@@ -1,10 +1,10 @@
 use rand::prelude::*;
 use rand_distr::{Exp, Normal, WeightedIndex};
 use serde::{Deserialize, Serialize};
+use serde_json;
+use std::fmt;
 use std::fs::read_to_string;
 use std::path::Path;
-use std::fmt;
-use serde_json;
 
 #[allow(non_snake_case)]
 #[derive(Serialize, Deserialize)]
@@ -83,7 +83,11 @@ impl Parameters {
 
 impl fmt::Display for Parameters {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Parameters(a1: {}, a2: {}, b1: {}, b2: {}, I: {})", self.a1, self.a2, self.b1, self.b2, self.I)
+        write!(
+            f,
+            "Parameters(a1: {}, a2: {}, b1: {}, b2: {}, I: {})",
+            self.a1, self.a2, self.b1, self.b2, self.I
+        )
     }
 }
 

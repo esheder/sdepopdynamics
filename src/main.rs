@@ -1,9 +1,9 @@
 use clap::{Parser, Subcommand};
-use popfeedback::{Parameters};
 use popfeedback;
-use std::path::PathBuf;
-use rand_chacha::ChaCha20Rng;
+use popfeedback::Parameters;
 use rand_chacha::rand_core::SeedableRng;
+use rand_chacha::ChaCha20Rng;
+use std::path::PathBuf;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about)]
@@ -17,7 +17,7 @@ struct Cli {
     n0: u32,
 
     /// Random number generator seed
-    #[arg(short, long, value_name = "Seed", default_value="48")]
+    #[arg(short, long, value_name = "Seed", default_value = "48")]
     seed: u64,
 
     /// Which model to use
@@ -46,24 +46,22 @@ enum Model {
     },
 }
 
-
 fn main() {
     let args = Cli::parse();
     let params = Parameters::from_json_file(&args.pfile);
     let mut rng = ChaCha20Rng::seed_from_u64(args.seed);
-    
+
     let pops = match &args.model {
-        Model::Branching{times} => {
+        Model::Branching { times } => {
             let fun = |x, y| popfeedback::sample_branching_at_time(&params, x, y, &mut rng);
             popfeedback::sample_at_times(args.n0, &times, fun)
         }
-        Model::SDE{dt, times} => {
+        Model::SDE { dt, times } => {
             let fun = |x: f64, y| popfeedback::sample_sde_at_time(&params, x, y, *dt, &mut rng);
             popfeedback::sample_at_times(args.n0, &times, fun)
-        },
+        }
     };
-    
+
     println!("{:?}", &args.model);
     println!("{:?}", pops);
-
 }

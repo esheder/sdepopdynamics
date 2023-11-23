@@ -1,5 +1,4 @@
 use clap::{Parser, Subcommand};
-use popfeedback;
 use popfeedback::Parameters;
 use rand_chacha::rand_core::SeedableRng;
 use rand_chacha::ChaCha20Rng;
@@ -35,7 +34,7 @@ enum Model {
     },
 
     /// Stochastic Differential Equation
-    SDE {
+    Sde {
         /// Time step size
         #[arg(value_name = "delt")]
         dt: f64,
@@ -54,14 +53,13 @@ fn main() {
     let pops = match &args.model {
         Model::Branching { times } => {
             let fun = |x, y| popfeedback::sample_branching_at_time(&params, x, y, &mut rng);
-            popfeedback::sample_at_times(args.n0, &times, fun)
+            popfeedback::sample_at_times(args.n0, times, fun)
         }
-        Model::SDE { dt, times } => {
+        Model::Sde { dt, times } => {
             let fun = |x: f64, y| popfeedback::sample_sde_at_time(&params, x, y, *dt, &mut rng);
-            popfeedback::sample_at_times(args.n0, &times, fun)
+            popfeedback::sample_at_times(args.n0, times, fun)
         }
     };
 
-    println!("{:?}", &args.model);
     println!("{:?}", pops);
 }

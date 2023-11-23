@@ -5,6 +5,7 @@ extern crate test;
 use popfeedback::{sample_sde_at_time, sample_branching_at_time, Parameters};
 use rand::prelude::*;
 use test::{black_box, Bencher};
+use std::rc::Rc;
 
 #[bench]
 fn bench_sde(b: &mut Bencher) {
@@ -14,7 +15,7 @@ fn bench_sde(b: &mut Bencher) {
         b1: 0.,
         b2: 0.,
         I: 3000.,
-        multiplicity: vec![0.5, 0.5],
+        multiplicity: Rc::new([0.5, 0.5]),
     };
     let mut rng = thread_rng();
     b.iter(|| black_box(sample_sde_at_time(&p, 4000, 20., 1e-4, &mut rng)));
@@ -29,7 +30,7 @@ fn bench_branching(b: &mut Bencher) {
         b1: 0.,
         b2: 0.,
         I: 3000.,
-        multiplicity: vec![0.5, 0.5],
+        multiplicity: Rc::new([0.5, 0.5]),
     };
     let mut rng = thread_rng();
     b.iter(|| black_box(sample_branching_at_time(&p, 4000, 20., &mut rng)));

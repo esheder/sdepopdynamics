@@ -1,5 +1,6 @@
 use rand::prelude::*;
 use rand_distr::{Exp, Normal, WeightedIndex};
+use std::rc::Rc;
 
 #[allow(non_snake_case)]
 pub struct Parameters {
@@ -8,7 +9,7 @@ pub struct Parameters {
     pub b1: f64,
     pub b2: f64,
     pub I: f64,
-    pub multiplicity: Vec<f64>,
+    pub multiplicity: Rc<[f64]>,
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -19,19 +20,23 @@ enum Event {
 }
 
 impl Parameters {
-    fn birth<N: Into<f64>>(&self, n: N) -> f64 {
+    pub fn alpha<N: Into<f64> + Copy>(&self, n: N) -> f64 {
+        self.barnu() * self.birth(n) - self.death(n)
+    }
+
+    pub fn birth<N: Into<f64>>(&self, n: N) -> f64 {
         self.a1 - self.b1 * n.into()
     }
 
-    fn death<N: Into<f64>>(&self, n: N) -> f64 {
+    pub fn death<N: Into<f64>>(&self, n: N) -> f64 {
         self.a2 + self.b2 * n.into()
     }
 
-    fn rate<N: Into<f64> + Copy>(&self, n: N) -> f64 {
+    pub fn rate<N: Into<f64> + Copy>(&self, n: N) -> f64 {
         self.I + n.into() * (self.birth(n) + self.death(n))
     }
 
-    fn barnu(&self) -> f64 {
+    pub fn barnu(&self) -> f64 {
         self.multiplicity
             .iter()
             .zip(1..self.multiplicity.len() + 1)
@@ -39,7 +44,7 @@ impl Parameters {
             .sum()
     }
 
-    fn barnu2(&self) -> f64 {
+    pub fn barnu2(&self) -> f64 {
         let range2 = (1..self.multiplicity.len() + 1).map(|x| x * x);
         self.multiplicity
             .iter()
@@ -48,34 +53,34 @@ impl Parameters {
             .sum()
     }
 
-    fn sample_child<R: Rng>(&self, mut rng: R) -> u32 {
-        let wi = WeightedIndex::new(&self.multiplicity).unwrap();
-        (wi.sample(&mut rng) + 1) as u32
+    fn sample_child<R: Rng>(&self, rng: &mut R) -> u32 {
+        let wi = WeightedIndex::new(&*self.multiplicity).unwrap();
+        (wi.sample(rng) + 1) as u32
     }
 
-    fn sample<R: Rng, N: Into<f64> + Copy>(&self, n: N, mut rng: R) -> i32 {
+    fn sample<R: Rng, N: Into<f64> + Copy>(&self, n: N, rng: &mut R) -> i32 {
         let wi = WeightedIndex::new([self.I, n.into() * self.death(n), n.into() * self.birth(n)])
             .unwrap();
         let events = [Event::Immigration, Event::Death, Event::Birth];
-        let event = events[wi.sample(&mut rng)];
+        let event = events[wi.sample(rng)];
         match event {
             Event::Death => -1_i32,
             Event::Immigration => 1_i32,
-            Event::Birth => self.sample_child(&mut rng) as i32,
+            Event::Birth => self.sample_child(rng) as i32,
         }
     }
 }
 
-pub fn sample_sde_at_time<R: Rng>(
+pub fn sample_sde_at_time<R: Rng, N: Into<f64>>(
     params: &Parameters,
-    n0: u32,
+    n0: N,
     t: f64,
     dt: f64,
-    mut rng: R,
+    rng: &mut R,
 ) -> f64 {
     let steps = (t / dt) as u32;
     let rem = t - (steps as f64) * dt;
-    let mut n: f64 = n0 as f64;
+    let mut n: f64 = n0.into();
     let barnu = params.barnu();
     let barnu2 = params.barnu2();
     let normd = Normal::new(0., f64::sqrt(dt)).unwrap();
@@ -85,7 +90,7 @@ pub fn sample_sde_at_time<R: Rng>(
         let mu = n * (birth * barnu - death) + params.I;
         let sigma2 = params.I + n * (birth * barnu2 + death);
         let sigma = f64::sqrt(sigma2);
-        let dw = normd.sample(&mut rng);
+        let dw = normd.sample(rng);
         n += mu * dt + sigma * dw
     }
     if rem > 0. {
@@ -95,36 +100,55 @@ pub fn sample_sde_at_time<R: Rng>(
         let mu = n * (birth * barnu - death) + params.I;
         let sigma2 = params.I + n * (birth * barnu2 + death);
         let sigma = f64::sqrt(sigma2);
-        let dw = normd.sample(&mut rng);
+        let dw = normd.sample(rng);
         n += mu * rem + sigma * dw
     }
     n
 }
 
-pub fn sample_branching_at_time<R: Rng>(params: &Parameters, n0: u32, t: f64, mut rng: R) -> u32 {
-    let mut now = 0.;
+pub fn sample_branching_at_time<R: Rng>(params: &Parameters, n0: u32, t: f64, rng: &mut R) -> u32 {
+    let mut now = 0.0;
     let mut n: i32 = n0 as i32;
     loop {
         let rate = params.rate(n as u32);
-        if rate == 0. {
+        if rate == 0.0 {
             return 0_u32;
         }
         let expd = Exp::new(rate).unwrap();
-        let min_time = now + expd.sample(&mut rng);
+        let min_time = now + expd.sample(rng);
         if min_time >= t {
             return n as u32;
         }
         // This cannot result in negative values because it decreases by 1 at most and at n=0
         // that's impossible
-        n += params.sample(n as u32, &mut rng);
+        n += params.sample(n as u32, rng);
         now = min_time;
     }
 }
+
+
+pub fn sample_at_times<F, N1, N2, N3>(n0: N3, times: &[f64], mut f: F) -> Vec<f64>
+where F: FnMut(N1, f64) -> N2,
+      N1: Into<f64> + Copy,
+      N2: Into<N1>,
+      N3: Into<N1>,
+{
+    let mut now = 0.;
+    let mut n: N1 = n0.into() ;
+    times.iter().map(|x| {
+        let dt = x - now;
+        now = *x;
+        n = f(n, dt).into();
+        n.into()
+    }).collect()
+}
+
 
 #[cfg(test)]
 mod tests {
 
     use rand::prelude::*;
+    use std::rc::Rc;
 
     #[test]
     fn zero_population_branching_no_immigration_is_zero() {
@@ -134,9 +158,9 @@ mod tests {
             b1: 1.,
             b2: 1.,
             I: 0.,
-            multiplicity: vec![1.],
+            multiplicity: Rc::new([1.]),
         };
-        let pop = super::sample_branching_at_time(&p, 0, 20., thread_rng());
+        let pop = super::sample_branching_at_time(&p, 0, 20., &mut thread_rng());
         assert_eq!(pop, 0);
     }
 
@@ -148,9 +172,41 @@ mod tests {
             b1: 1.,
             b2: 1.,
             I: 0.,
-            multiplicity: vec![1.],
+            multiplicity: Rc::new([1.]),
         };
-        let pop = super::sample_sde_at_time(&p, 0, 20., 1e-4, thread_rng());
+        let pop = super::sample_sde_at_time(&p, 0, 20., 1e-4, &mut thread_rng());
         assert_eq!(pop, 0.);
+    }
+
+    #[test]
+    fn sample_size_matches_times_sde() {
+        let p = super::Parameters {
+            a1: 1.,
+            a2: 1.,
+            b1: 1e-8,
+            b2: 1e-4,
+            I: 400.,
+            multiplicity: Rc::new([0.25, 0.75]),
+        };
+        let sde = |x: f64, y| {super::sample_sde_at_time(&p, x, y, 1e-4, &mut thread_rng())};
+        let times = [10., 20., 30., 40., 50.];
+        let pop = super::sample_at_times(5000_u32, &times, sde);
+        assert_eq!(pop.len(), times.len());
+    }
+
+    #[test]
+    fn sample_size_matches_times_branching(){
+        let p = super::Parameters {
+            a1: 1.,
+            a2: 1.,
+            b1: 1e-8,
+            b2: 1e-4,
+            I: 400.,
+            multiplicity: Rc::new([0.25, 0.75]),
+        };
+        let branch = |x, y| {super::sample_branching_at_time(&p, x, y, &mut thread_rng())};
+        let times = [10., 20., 30., 40., 50.];
+        let pop = super::sample_at_times(5000_u32, &times, branch);
+        assert_eq!(pop.len(), times.len());
     }
 }

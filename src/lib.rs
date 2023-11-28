@@ -6,7 +6,7 @@ use std::fs::read_to_string;
 use std::path::Path;
 
 #[allow(non_snake_case)]
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct Parameters {
     pub a1: f64,
     pub a2: f64,
@@ -27,6 +27,17 @@ impl Parameters {
     pub fn from_json_file<P: AsRef<Path>>(path: P) -> Parameters {
         let s = read_to_string(path).expect("Path could not be opened");
         serde_json::from_str(s.as_str()).expect("JSON parsing error in {path}")
+    }
+
+    pub fn from_vec(v: &[f64]) -> Parameters {
+        Parameters {
+            a1: v[0],
+            a2: v[1],
+            b1: v[2],
+            b2: v[3],
+            I: v[4],
+            multiplicity: v[5..].to_vec(),
+        }
     }
 
     pub fn alpha<N: Into<f64> + Copy>(&self, n: N) -> f64 {

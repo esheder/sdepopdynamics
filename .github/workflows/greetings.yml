@@ -1,0 +1,22 @@
+name: Greetings
+
+on: [pull_request_target, issues]
+
+jobs:
+  greeting:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      pull-requests: write
+    steps:
+    - uses: actions/first-interaction@v1
+      with:
+        repo-token: ${{ secrets.GITHUB_TOKEN }}
+        issue-message: |
+            👋 Hello @${{ github.actor }}, thank you for your interest in this project! 
+            This is a research project about using SDEs to approximate branching processes. Since this is a research project, please tell us if we're wrong!
+            If you're using this package for your own needs, please let us know what ails you, and we'll try to help, but know we don't really expect users.
+        pr-message: |
+            👋 Hello @${{ github.actor }}, thank you for submitting a PR! We're glad you want to contribute to our research project.
+            To make your contribution as seamless as possible, please try to run the tests and format your code with `cargo fmt` and `cargo test` before you push.
+            Thanks again!

@@ -17,6 +17,10 @@ struct Cli {
     /// Population size
     #[arg(short, long, value_name = "PopSize")]
     n: u32,
+
+    /// Verbose flag
+    #[arg(short, long)]
+    v: bool,
 }
 
 #[derive(Debug, Subcommand)]
@@ -73,6 +77,12 @@ fn main() {
                 let v: Vec<f64> = par.values.as_deref().unwrap().to_vec();
                 Parameters::from_vec(&v)
             };
+            if args.v {
+                println!("{:?}", &params);
+                println!("Times: {:?}", &ex.times);
+                println!("Seed: {}", args.seed);
+                println!("Initial population: {}", args.n);
+            }
             let fun = |x, y| popfeedback::sample_branching_at_time(&params, x, y, &mut rng);
             popfeedback::sample_at_times(args.n, &ex.times, fun)
         }
@@ -84,6 +94,12 @@ fn main() {
                 let v: Vec<f64> = par.values.as_deref().unwrap().to_vec();
                 Parameters::from_vec(&v)
             };
+            if args.v {
+                println!("{:?}", &params);
+                println!("Times: {:?}", &ex.times);
+                println!("Seed: {}", args.seed);
+                println!("Initial population: {}", args.n);
+            }
             let fun = |x: f64, y| popfeedback::sample_sde_at_time(&params, x, y, *dt, &mut rng);
             popfeedback::sample_at_times(args.n, &ex.times, fun)
         }

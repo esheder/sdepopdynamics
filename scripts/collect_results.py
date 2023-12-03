@@ -19,7 +19,7 @@ if __name__ == '__main__':
     p.add_argument("t", type=float, nargs="+", help="Times list")
     args = p.parse_args()
     with args.o.open('w') as of:
-        of.write("seed,time,pop\n")
+        of.write("seed,time,population\n")
         for fn in map(lambda x: args.d / x, listdir(args.d)):
             with fn.open('r') as f:
                 vec = parse_file(f.read())

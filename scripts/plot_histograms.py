@@ -15,7 +15,10 @@ if __name__ == '__main__':
     pops = tuple(map(lambda x: x.population, dfs))
     binrange = range(*args.bins)
     df = pd.concat(pops, axis=1, keys=map(lambda x: x.stem, args.samples))
-    ax = df.hist(bins=binrange, alpha=1./len(args.samples))
+    alpha = 1./len(pops)
+    ax0 = pops[0].hist(bins=binrange, alpha=alpha)
+    for pop in pops[1:]:
+        pop.hist(ax=ax0, bins=binrange, alpha=alpha)
     plt.savefig(args.output, dpi=600)
 
 

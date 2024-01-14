@@ -1,0 +1,35 @@
+dozens/branching.parquet
+ShapiroResult(statistic=0.9943786859512329, pvalue=3.0720862052163733e-12)
+AndersonResult(statistic=3766.690818331437, critical_values=array([0.576, 0.656, 0.787, 0.918, 1.092]), significance_level=array([15. , 10. ,  5. ,  2.5,  1. ]), fit_result=  params: FitParams(loc=41.3673495, scale=4.8750409975570586)
+ success: True
+ message: '`anderson` successfully fit the distribution to the data.')
+dozens/sde.parquet
+ShapiroResult(statistic=0.9992033243179321, pvalue=0.03865792974829674)
+AndersonResult(statistic=308.24463220802136, critical_values=array([0.576, 0.656, 0.787, 0.918, 1.092]), significance_level=array([15. , 10. ,  5. ,  2.5,  1. ]), fit_result=  params: FitParams(loc=41.376879255812526, scale=4.879156027066725)
+ success: True
+ message: '`anderson` successfully fit the distribution to the data.')
+dozens/sde_lowval.parquet
+ShapiroResult(statistic=0.9975348114967346, pvalue=1.1758620530599728e-06)
+AndersonResult(statistic=305.3118116145488, critical_values=array([0.576, 0.656, 0.787, 0.918, 1.092]), significance_level=array([15. , 10. ,  5. ,  2.5,  1. ]), fit_result=  params: FitParams(loc=41.37362352739995, scale=4.876687965282984)
+ success: True
+ message: '`anderson` successfully fit the distribution to the data.')
+lowpop/branching.parquet
+ShapiroResult(statistic=0.9987520575523376, pvalue=0.0016401646425947547)
+AndersonResult(statistic=485.6992810165975, critical_values=array([0.576, 0.656, 0.787, 0.918, 1.092]), significance_level=array([15. , 10. ,  5. ,  2.5,  1. ]), fit_result=  params: FitParams(loc=249.507206, scale=14.899663891294868)
+ success: True
+ message: '`anderson` successfully fit the distribution to the data.')
+lowpop/sde.parquet
+ShapiroResult(statistic=0.9995176792144775, pvalue=0.3249255120754242)
+AndersonResult(statistic=84.67080426332541, critical_values=array([0.576, 0.656, 0.787, 0.918, 1.092]), significance_level=array([15. , 10. ,  5. ,  2.5,  1. ]), fit_result=  params: FitParams(loc=249.5172443634942, scale=14.905485849120355)
+ success: True
+ message: '`anderson` successfully fit the distribution to the data.')
+simple/branching.parquet
+ShapiroResult(statistic=0.9996992945671082, pvalue=0.782817542552948)
+AndersonResult(statistic=9.846581286052242, critical_values=array([0.576, 0.656, 0.787, 0.918, 1.092]), significance_level=array([15. , 10. ,  5. ,  2.5,  1. ]), fit_result=  params: FitParams(loc=5851.5134665, scale=134.91755552939273)
+ success: True
+ message: '`anderson` successfully fit the distribution to the data.')
+simple/sde.parquet
+ShapiroResult(statistic=0.9995501041412354, pvalue=0.3927619457244873)
+AndersonResult(statistic=3.6256284592673182, critical_values=array([0.576, 0.656, 0.787, 0.918, 1.092]), significance_level=array([15. , 10. ,  5. ,  2.5,  1. ]), fit_result=  params: FitParams(loc=5851.472957615336, scale=135.0045774007164)
+ success: True
+ message: '`anderson` successfully fit the distribution to the data.')

@@ -14,6 +14,7 @@ df = pd.read_parquet(args.parquet)
 s1 = df.groupby("time").population.apply(lambda x: stat.kstat(x, n=1))
 s2 = df.groupby("time").population.apply(lambda x: stat.kstat(x, n=2))
 s3 = df.groupby("time").population.apply(lambda x: stat.kstat(x, n=3))
+relskew = s3.abs() / (s2**1.5)
 
 if args.out:
     plt.figure()
@@ -28,5 +29,8 @@ if args.out:
     s3.plot()
     plt.savefig(f"{args.out}.k3.jpg", dpi=300)
 
-relskew = s3.abs() / (s2**1.5)
+    plt.figure()
+    relskew.plot()
+    plt.savefig(f"{args.out}.relskew.jpg", dpi=300)
+
 print(f"Maximal Relative Skewness at time={relskew.idxmax()}")

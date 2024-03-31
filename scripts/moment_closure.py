@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Tools to model the effects of the moment closures
 
 """
@@ -31,6 +32,7 @@ def foxes(i, t, p0, func=partial(moment_closure, dkdt)):
     b1 = 0.
     b2 = (i + a * k) / (k ** 2)
     return func(i, a1, a2, b1, b2, t, p0)
+
 
 def plot_pop(popfunc, ilow, ihigh, save: str = None):
     import matplotlib.pyplot as plt
@@ -98,6 +100,14 @@ def compare(pop, ilow, ihigh):
     k2high = pop(ihigh, t, p0, func=partial(moment_closure, gaussian))
     k3high = pop(ihigh, t, p0, func=partial(moment_closure, dkdt))
     kolhigh = pop(ihigh, t, p0, func=kolmogorov)
+    skew_low = relative_skewness(kollow)
+    skew_high = relative_skewness(kolhigh)
+    k2_skew_low = relative_skewness(k2low)
+    k2_skew_high = relative_skewness(k2high)
+    k3_skew_low = relative_skewness(k3low)
+    k3_skew_high = relative_skewness(k3high)
+    tmax_low = t[np.abs(skew_low).argmax()]
+    tmax_high = t[np.abs(skew_high).argmax()]
     def relerr(x, y):
         vals = 1e2 * (x - y) / y
         vals[y<1] = np.nan
@@ -116,6 +126,10 @@ def compare(pop, ilow, ihigh):
     plt.grid()
     plt.legend()
     plt.show()
+    print(f"Skewness at worst skew for low immigration (at t={tmax_low:.2f}): "
+          f"k2={k2_skew_low[tmax_low]:.3e}, k3={k3_skew_low[tmax_low]:.3e}, actual={skew_low[tmax_low]:.3e}")
+    print(f"Skewness at worst skew for high immigration (at t={tmax_high:.2f}): "
+          f"k2={k2_skew_high[tmax_high]:.3e}, k3={k3_skew_high[tmax_high]:.3e}, actual={skew_high[tmax_high]:.3e}")
 
 
 if __name__ == '__main__':

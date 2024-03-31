@@ -29,3 +29,5 @@ dependencies = [
 license = {file = "LICENSE"}
 keywords = ["SDE", "Logistic Model"]
 
+[tool.setuptools]
+packages = ["biopop_closure"]

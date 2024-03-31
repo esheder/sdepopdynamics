@@ -62,4 +62,5 @@ def test_moment_closure_solve_is_positive():
     assert np.all(sol[0, :] > 0)
 
 
-def relative_skewness(vec): return vec[2, :] / (vec[1, :] ** 1.5)
+def relative_skewness(vec: np.ndarray) -> np.ndarray:
+    return vec[2, :] / (vec[1, :] ** 1.5)

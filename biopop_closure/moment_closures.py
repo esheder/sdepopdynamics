@@ -42,7 +42,7 @@ def moment_closure(func, i, a1, a2, b1, b2, t, p0):
     d = b1 - b2
     f = partial(func, i, a, b, c, d)
     p0 = np.array([p0, 0., 0.])
-    sol = solve_ivp(f, (t[0], t[-1]), p0, t_eval=t)
+    sol = solve_ivp(f, (t[0], t[-1]), p0, t_eval=t, rtol=1e-5)
     if sol.success:
         return sol.y
     else:

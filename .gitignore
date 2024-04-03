@@ -5,6 +5,7 @@ __pycache__
 .ipynb*
 *.pdf
 runs
+*.jpg
 
 # Added by cargo
 

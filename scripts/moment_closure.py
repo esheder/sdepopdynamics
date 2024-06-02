@@ -15,7 +15,8 @@ import numpy as np
 import pandas as pd
 import scipy.stats as st
 
-from biopop_closure.kolmogorov import kolmogorov
+from biopop_closure.kolmogorov import kolmogorov_moments as kolmogorov
+from biopop_closure.matispop import badgers, foxes
 from biopop_closure.moment_closures import (
     moment_closure, dkdt, relative_skewness, gaussian
 )
@@ -23,26 +24,6 @@ from biopop_closure.moment_closures import (
 from matplotlib import rc_params
 
 rc_params()
-
-
-def badgers(i, t, p0, func=partial(moment_closure, dkdt)):
-    k = 60
-    a1 = 0.61
-    a2 = 0.37
-    a = a1 - a2
-    b2 = 0.
-    b1 = (i + a * k) / (k ** 2)
-    return func(i, a1, a2, b1, b2, t, p0)
-
-
-def foxes(i, t, p0, func=partial(moment_closure, dkdt)):
-    a1 = 1.
-    a2 = 0.5
-    a = a1 - a2
-    k = 100.
-    b1 = 0.
-    b2 = (i + a * k) / (k ** 2)
-    return func(i, a1, a2, b1, b2, t, p0)
 
 
 def plot_pop(popfunc, ilow, ihigh, save: str = None):

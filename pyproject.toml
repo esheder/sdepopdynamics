@@ -24,7 +24,8 @@ dependencies = [
     "scipy",
     "numpy",
     "matplotlib",
-    "pandas"
+    "pandas",
+    "pytest",
 ]
 license = {file = "LICENSE"}
 keywords = ["SDE", "Logistic Model"]

@@ -59,3 +59,18 @@ def test_moment_closure_with_multiple_births_solve_is_positive():
     assert len(sol[0, :]) == len(ts)
     assert np.all(sol[0, :] > 0)
 
+
+def test_multiple_births_are_single_births_if_multiplicity_is_one():
+    from biopop_closure.moment_closures import moment_closure as single_birth, dkdt as single_dkdt
+    ts = np.linspace(0, 20, 100)
+    a1 = 0.61
+    a2 = 0.37
+    b2 = 0.
+    b1 = 0.004
+    m = (1., 1., 1.)
+    p0 = 6.
+    i = 0.
+    msol = moment_closure(dkdt, i, a1, a2, b1, b2, m, ts, p0)
+    esol = single_birth(single_dkdt, i, a1, a2, b1, b2, ts, p0)
+    assert np.allclose(msol, esol, rtol=1e-10)
+

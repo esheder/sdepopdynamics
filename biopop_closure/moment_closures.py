@@ -106,7 +106,7 @@ def test_saddle_not_gaussian_with_skew():
     s = saddlepoint_distribution(mom)
     legal = ~np.isnan(s)
     g, s = g[legal], s[legal]
-    assert ~np.allclose(g, s)
+    assert not np.allclose(g, s)
 
 
 def relative_skewness(vec: np.ndarray) -> np.ndarray:

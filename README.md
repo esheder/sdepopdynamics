@@ -15,9 +15,12 @@ We also use these tools to create an analysis of how the distributions differ in
 certain cases using a KS test.
 
 ## How to install this package
-This is a rust package. We will hopefully supply a complete binary version,
+This is mostly a rust package. We will hopefully supply a complete binary version,
 but you can always simply use `cargo` to `cargo build` and run the application
 yourself.
+
+The python module is used for comparisons with other codes and for a reference solution,
+and you probably don't need it yourself.
 
 
 ## How to use this code

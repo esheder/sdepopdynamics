@@ -26,6 +26,7 @@ dependencies = [
     "matplotlib",
     "pandas",
     "pytest",
+    "pyarrow"
 ]
 license = {file = "LICENSE"}
 keywords = ["SDE", "Logistic Model"]

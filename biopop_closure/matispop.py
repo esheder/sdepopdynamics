@@ -8,7 +8,7 @@ from biopop_closure.multiple_births import moment_closure as multiple_closure, d
 
 
 def badgers(i: float, t: np.ndarray, p0: float, func=partial(moment_closure, dkdt)):
-    a1, a2, b1, b2, _ = badgers_params(i)
+    a1, a2, b1, b2 = badgers_params(i)
     return func(i, a1, a2, b1, b2, t, p0)
 
 

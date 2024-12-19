@@ -73,21 +73,33 @@ def foxes_params(i):
     return a1, a2, b1, b2
 
 
-def foxes_params_multiple_births(i):
+def _foxes_params_multiple_births_paper(i):
     a1, a2, b1, b2 = foxes_params(i)
     m = (4.45, 22.55, 126.982)
     return a1/m[0], a2, b1, b2, m
 
 
+foxes_multiplicity_vector = np.array((0.035, 0.07, 0.176, 0.211, 0.317, 0.087, 0.007, 0.017, 0., 0.017))
+
+
+def foxes_params_multiple_births(i):
+    a1, a2, b1, b2 = foxes_params(i)
+    mvec = foxes_multiplicity_vector
+    pop = np.arange(1, 11)
+    m = tuple(float(np.sum((pop ** e) * mvec)) for e in range(1, 4))
+    return a1/m[0], a2, b1/m[0], b2, m
+
+
 @pytest.mark.xfail(reason="Paper doesn't give enough precision and it comes out super wrong?")
-def test_foxes_multiplicity():
+def test_foxes_multiplicity_from_paper_meets_its_reported_values():
     pop = np.arange(10) + 1
-    prob = np.array((0.035, 0.07, 0.176, 0.211, 0.317, 0.087, 0.007, 0.017, 0., 0.017))
-    mt = tuple(np.sum((pop ** e) * prob) for e in (1, 2, 3))
+    prob = foxes_multiplicity_vector
+    _, _, _, _, m = _foxes_params_multiple_births_paper(0)
+    _, _, _, _, mt = foxes_params_multiple_births(0)
     assert np.allclose(m, mt, rtol=1e-2)
 
 
 def test_foxes_params_mul_with_paper():
-    a1m, _, _, _, m = foxes_params_multiple_births(2)
+    a1m, _, _, _, m = _foxes_params_multiple_births_paper(2)
     assert np.isclose(a1m, 0.2247, rtol=1e-4)
 

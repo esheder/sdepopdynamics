@@ -27,9 +27,9 @@ def dkdt(i, a, b, c, d, _, k):
                      ))
 
 
-def gaussian(*args):
+def gaussian(*args, func=dkdt):
     args[-1][-1] = 0
-    der = dkdt(*args)
+    der = func(*args)
     der[-1] = 0
     return der
 

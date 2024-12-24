@@ -44,15 +44,19 @@ def moment_closure(func,
         raise RuntimeError(sol.message)
 
 
+def moments_from_vector(v):
+    pop = np.arange(len(v)) + 1
+    return tuple(np.sum((pop ** e) * v) for e in range(1, 4))
+
+
 def test_moment_closure_with_multiple_births_solve_is_positive():
     ts = np.linspace(0, 20, 100)
     a1 = 0.61
     a2 = 0.37
     b2 = 0.
     b1 = 0.004
-    pop = np.arange(5) + 1
     prob = np.array([0.11, 0.51, 0.28, 0.08, 0.02])
-    m: tuple[float, float, float] = tuple(np.sum((pop ** e) * prob) for e in (1, 2, 3))
+    m: tuple[float, float, float] = moments_from_vector(prob)
     i = 0.
     p0 = 6.
     sol = moment_closure(dkdt, i, a1, a2, b1, b2, m, ts, p0)

@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 from functools import partial
 
 import numpy as np
@@ -45,11 +46,14 @@ def badgers_params_multiple_births(i):
     return a1, a2, b1, b2, m
 
 
+badgers_multiplicity_vector = np.array((0.11, 0.51, 0.28, 0.08, 0.02))
+
+
 def test_badgers_params_mul_with_paper():
     a1, _, b1, _ = badgers_params(2)
     a1m, _, b1m, _, m = badgers_params_multiple_births(2)
     pop = np.arange(5) + 1
-    prob = np.array((0.11, 0.51, 0.28, 0.08, 0.02))
+    prob = badgers_multiplicity_vector
     mt = tuple(np.sum((pop ** e) * prob) for e in (1, 2, 3))
     assert np.isclose(a1m, a1 / mt[0], rtol=1e-2)
     assert np.allclose(m, mt, rtol=1e-2)
@@ -102,4 +106,27 @@ def test_foxes_multiplicity_from_paper_meets_its_reported_values():
 def test_foxes_params_mul_with_paper():
     a1m, _, _, _, m = _foxes_params_multiple_births_paper(2)
     assert np.isclose(a1m, 0.2247, rtol=1e-4)
+
+
+if __name__ == '__main__':
+    from argparse import ArgumentParser
+    import json
+    from pathlib import Path
+    populations = {'fox': foxes_params_multiple_births, 'badger': badgers_params_multiple_births}
+    p = ArgumentParser(description="Makes a JSON file for the population")
+    p.add_argument("pop", choices=list(populations.keys()), help="Population type")
+    p.add_argument("immigration", type=float, help="Rate of immigration")
+    p.add_argument("-o", type=Path, default=None, help="Output file. Defaults to screen output")
+    args = p.parse_args()
+
+    f = populations[args.pop]
+    popargs = ["a1", "a2", "b1", "b2"]
+    mulvec = {key: vec for key, vec in zip(populations.keys(), (foxes_multiplicity_vector, badgers_multiplicity_vector))}[args.pop]
+    pop = {key: value for key, value in zip(popargs, f(args.immigration))} | {"I": args.immigration, "multiplicity": list(mulvec)}
+    if args.o is None:
+        print(json.dumps(pop))
+    else:
+        with args.o.open("w") as f:
+            json.dump(pop, f)
+
 

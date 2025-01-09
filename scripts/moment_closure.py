@@ -45,7 +45,7 @@ def change_m(d):
     return d
 
 
-def plot_pop(plow, phigh, ilow, ihigh, dflow, dfhigh, p0: int, save: str = None):
+def plot_pop(plow, phigh, ilow, ihigh, dflow, dfhigh, p0: int, moment: int, save: str = None):
     t = np.linspace(0, 50, 500)
     reference_low = kolmogorov(**plow, i=ilow, t=t, p0=p0)
     reference_high = kolmogorov(**phigh, i=ihigh, t=t, p0=p0)
@@ -68,36 +68,48 @@ def plot_pop(plow, phigh, ilow, ihigh, dflow, dfhigh, p0: int, save: str = None)
             (ilow, "SDE"): (dflow.time.values, moments(dflow)),
             (ihigh, "SDE"): (dfhigh.time.values, moments(dfhigh)),
             }
+
+    func = {1: plot_moment, 2: plot_moment, 3: plot_k3}[moment]
+    func(refcolors, refmarks, labels, markers, values, moment=moment, save=save)
+
+
+def plot_moment(refcolors, refmarks, labels, markers, values, moment, save, *, can_show=True):
+    try:
+        name = {1: 'Expectation', 2: 'Variance', 3: 'Skewness'}[moment]
+    except KeyError:
+        raise ValueError(f"Plot moment does not work for moment {moment}")
     plt.figure()
     for key, (t, v) in values.items():
-        plt.plot(t, v[0, :], markers[key], label=labels[key])
+        plt.plot(t, v[moment-1, :], markers[key], label=labels[key])
     plt.xlabel("Time [yrs]")
-    plt.ylabel("k1 [1]")
+    plt.ylabel(f"{name} [1]")
     plt.grid()
     plt.legend()
     if save:
-        plt.savefig(f"{save}_expectation.jpg", dpi=300)
+        plt.savefig(f"{save}_{name}.jpg", dpi=300)
 
     plt.figure()
     for key, (t, v) in values.items():
-        plt.plot(t, v[1, :], markers[key], label=labels[key])
+        if key[1] == "reference":
+            continue
+        reference_t, reference_data = values[(key[0], "reference")]
+        reference_y = reference_data[moment-1, :]
+        reference = np.interp(t, reference_t, reference_y)
+        plt.plot(t, 100*(v[moment-1, :]-reference)/reference, markers[key], label=labels[key])
     plt.xlabel("Time [yrs]")
-    plt.ylabel("k2 [1]")
+    plt.ylabel(f"{name} Error [%]")
     plt.grid()
     plt.legend()
     if save:
-        plt.savefig(f"{save}_variance.jpg", dpi=300)
+        plt.savefig(f"{save}_{name}_error.jpg", dpi=300)
 
-    plt.figure()
-    for key, (t, v) in values.items():
-        plt.plot(t, v[2, :], markers[key], label=labels[key])
-    plt.xlabel("Time [yrs]")
-    plt.ylabel("k3 [1]")
-    plt.grid()
-    plt.legend()
-    if save:
-        plt.savefig(f"{save}_skewness.jpg", dpi=300)
+    if not save and can_show:
+        plt.show()
 
+
+def plot_k3(refcolors, refmarks, labels, markers, values, save, **_):
+    plot_moment(refcolors, refmarks, labels, markers, values, save=save, moment=3, can_show=False)
+    
     plt.figure()
     with warnings.catch_warnings():
         warnings.simplefilter('ignore')
@@ -110,6 +122,25 @@ def plot_pop(plow, phigh, ilow, ihigh, dflow, dfhigh, p0: int, save: str = None)
     if save:
         plt.savefig(f"{save}_relative_skewness.jpg", dpi=300)
 
+    plt.figure()
+    with warnings.catch_warnings():
+        warnings.simplefilter('ignore')
+        for key, (t, v) in values.items():
+            if key[1] == "reference":
+                continue
+            reference_t, reference_data = values[(key[0], "reference")]
+            reference = np.empty_like(v)
+            for i in range(reference_data.shape[0]):
+                reference_y = reference_data[i, :]
+                reference[i, :] = np.interp(t, reference_t, reference_y)
+            plt.plot(t, relative_skewness(v)-relative_skewness(reference), markers[key], label=labels[key])
+    plt.xlabel("Time [yrs]")
+    plt.ylabel(r"Relative Skewness Error ($\gamma$) [1]")
+    plt.grid()
+    plt.legend()
+    if save:
+        plt.savefig(f"{save}_relative_skewness_error.jpg", dpi=300)
+    
     if not save:
         plt.show()
 
@@ -133,10 +164,11 @@ if __name__ == '__main__':
     parser.add_argument('pop', type=Path, nargs=2, help="Population parameters JSON file")
     parser.add_argument('sde', type=Path, nargs=2, help="Path to SDE parquets to compare")
     parser.add_argument('pt0', type=int, help="Initial population")
+    parser.add_argument('moment', type=int, help="Moment to plot for")
     parser.add_argument("--save", default=None, help="Prefix for figure files to save. Defaults to screen output")
     args = parser.parse_args()
     p0, p1 = map(load_json_file, args.pop)
     df0, df1 = map(load_pandas, args.sde)
     d0, d1 = map(lambda x: comparable(x, "I"), (p0, p1))
-    plot_pop(d0, d1, p0["I"], p1["I"], df0, df1, p0=args.pt0, save=args.save)
+    plot_pop(d0, d1, p0["I"], p1["I"], df0, df1, p0=args.pt0, save=args.save, moment=args.moment)
 

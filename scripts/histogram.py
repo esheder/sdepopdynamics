@@ -43,6 +43,7 @@ if __name__ == '__main__':
     for a, i in it.product(animals, imms):
         p.add_argument(f"--{a}_{i}", type=Path, help=f"Parquet file of {i} immigration {a}")
     p.add_argument('--save', action="store_true", help="Flag to save plots")
+    p.add_argument('--ext', default="svg", help="Plot type for saved figures. Defaults to svg")
     args = p.parse_args()
     dfs = {(anim, st): pd.read_parquet(getattr(args, f"{anim}_{st}")) for anim, st in it.product(animals, imms)}
     t = np.linspace(0, 10, 500)
@@ -76,7 +77,7 @@ if __name__ == '__main__':
         plt.title(f"Histogram at large time for {animal} with {imm} immigration")
         plt.tight_layout()
         if args.save:
-            plt.savefig(f"{animal}_{imm}_pdf.svg")
+            plt.savefig(f"{animal}_{imm}_pdf.{args.ext}")
 
         plt.figure()
         gcdf, scdf, kcdf = map(np.cumsum, (g, s, k))
@@ -95,7 +96,7 @@ if __name__ == '__main__':
         plt.title(f"CDF at large time for {animal} with {imm} immigration")
         plt.tight_layout()
         if args.save:
-            plt.savefig(f"{animal}_{imm}_cdf.svg")
+            plt.savefig(f"{animal}_{imm}_cdf.{args.ext}")
 
         plt.figure()
         gerr, serr = map(lambda v: relerr(v, kcdf), (gcdf, scdf))
@@ -112,7 +113,7 @@ if __name__ == '__main__':
         plt.title(f"CDF Error at large time for {animal} with {imm} immigration")
         plt.tight_layout()
         if args.save:
-            plt.savefig(f"{animal}_{imm}_hist.svg")
+            plt.savefig(f"{animal}_{imm}_hist.{args.ext}")
 
     if not args.save:
         plt.show()

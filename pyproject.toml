@@ -33,3 +33,16 @@ keywords = ["SDE", "Logistic Model"]
 
 [tool.setuptools]
 packages = ["biopop_closure"]
+
+
+[tool.pytest.ini_options]
+minversion = "6.0"
+addopts = "-v -k 'not slow'"
+testpaths = [
+    "pytests",
+    "biopop_closure",
+]
+markers = [
+    "slow",
+]
+

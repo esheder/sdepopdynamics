@@ -78,36 +78,5 @@ def saddlepoint_distribution(moments: np.ndarray, maxpop: int = 200) -> np.ndarr
     return res
 
 
-def test_moment_closure_solve_is_positive():
-    ts = np.linspace(0, 20, 100)
-    a1 = 0.61
-    a2 = 0.37
-    b2 = 0.
-    b1 = 0.004
-    i = 0.
-    p0 = 6.
-    sol = moment_closure(dkdt, i, a1, a2, b1, b2, ts, p0)
-    assert len(sol[0, :]) == len(ts)
-    assert np.all(sol[0, :] > 0)
-
-
-def test_saddle_is_gaussian_no_skew():
-    mom = np.array([[50.], [5.], [0.]])
-    g = gaussian_distribution(mom)
-    s = saddlepoint_distribution(mom)
-    legal = ~np.isnan(s)
-    g, s = g[legal], s[legal]
-    assert np.allclose(g, s), (np.max(np.abs(g - s)), np.argmax(np.abs(g - s)))
-
-
-def test_saddle_not_gaussian_with_skew():
-    mom = np.array([[50.], [5.], [3.]])
-    g = gaussian_distribution(mom)
-    s = saddlepoint_distribution(mom)
-    legal = ~np.isnan(s)
-    g, s = g[legal], s[legal]
-    assert not np.allclose(g, s)
-
-
 def relative_skewness(vec: np.ndarray) -> np.ndarray:
     return vec[2, :] / (vec[1, :] ** 1.5)

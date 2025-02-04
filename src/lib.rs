@@ -1,5 +1,6 @@
-use rand::prelude::*;
-use rand_distr::{Exp, Normal, WeightedIndex};
+use rand::distr::weighted::WeightedIndex;
+use rand::Rng;
+use rand_distr::{Distribution, Exp, Normal};
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::fs::read_to_string;
@@ -157,9 +158,9 @@ impl fmt::Display for Parameters {
 ///
 /// ```
 /// use popfeedback::{Parameters, sample_sde_at_time};
-/// use rand::prelude::*;
+/// use rand::rng;
 /// let par = Parameters {a1: 1., a2: 1., b1: 0., b2: 0., I: 500., multiplicity: vec![0.5, 0.5]};
-/// sample_sde_at_time(&par, 1000, 10., 1e-3, &mut thread_rng());
+/// sample_sde_at_time(&par, 1000, 10., 1e-3, &mut rng());
 ///
 /// ```
 ///
@@ -211,9 +212,9 @@ pub fn sample_sde_at_time<R: Rng, N: Into<f64>>(
 ///
 /// ```
 /// use popfeedback::{Parameters, sample_branching_at_time};
-/// use rand::prelude::*;
+/// use rand::rng;
 /// let par = Parameters {a1: 1., a2: 1., b1: 0., b2: 0., I: 500., multiplicity: vec![0.5, 0.5]};
-/// sample_branching_at_time(&par, 1000, 10., &mut thread_rng());
+/// sample_branching_at_time(&par, 1000, 10., &mut rng());
 ///
 /// ```
 ///
@@ -251,9 +252,9 @@ pub fn sample_branching_at_time<R: Rng>(params: &Parameters, n0: u32, t: f64, rn
 ///
 /// ```
 /// use popfeedback::{Parameters, sample_sde_at_time, sample_at_times};
-/// use rand::prelude::*;
+/// use rand::rng;
 /// let par = Parameters {a1: 1., a2: 1., b1: 0., b2: 0., I: 500., multiplicity: vec![0.5, 0.5]};
-/// let func = |x: f64, y| sample_sde_at_time(&par, x, y, 1e-4, &mut thread_rng());
+/// let func = |x: f64, y| sample_sde_at_time(&par, x, y, 1e-4, &mut rng());
 /// sample_at_times(1000., &vec![1., 2., 3., 4., 5., 6., 7.], func);
 ///
 /// ```
@@ -281,8 +282,6 @@ where
 #[cfg(test)]
 mod tests {
 
-    use rand::prelude::*;
-
     #[test]
     fn zero_population_branching_no_immigration_is_zero_forever() {
         let p = super::Parameters {
@@ -293,7 +292,7 @@ mod tests {
             I: 0.,
             multiplicity: vec![1.],
         };
-        let pop = super::sample_branching_at_time(&p, 0, 20., &mut thread_rng());
+        let pop = super::sample_branching_at_time(&p, 0, 20., &mut rand::rng());
         assert_eq!(pop, 0);
     }
 
@@ -307,7 +306,7 @@ mod tests {
             I: 0.,
             multiplicity: vec![1.],
         };
-        let pop = super::sample_sde_at_time(&p, 0, 20., 1e-4, &mut thread_rng());
+        let pop = super::sample_sde_at_time(&p, 0, 20., 1e-4, &mut rand::rng());
         assert_eq!(pop, 0.);
     }
 
@@ -321,7 +320,7 @@ mod tests {
             I: 400.,
             multiplicity: vec![0.25, 0.75],
         };
-        let sde = |x: f64, y| super::sample_sde_at_time(&p, x, y, 1e-4, &mut thread_rng());
+        let sde = |x: f64, y| super::sample_sde_at_time(&p, x, y, 1e-4, &mut rand::rng());
         let times = [10., 20., 30., 40., 50.];
         let pop = super::sample_at_times(5000_u32, &times, sde);
         assert_eq!(pop.len(), times.len());
@@ -337,7 +336,7 @@ mod tests {
             I: 400.,
             multiplicity: vec![0.25, 0.75],
         };
-        let branch = |x, y| super::sample_branching_at_time(&p, x, y, &mut thread_rng());
+        let branch = |x, y| super::sample_branching_at_time(&p, x, y, &mut rand::rng());
         let times = [10., 20., 30., 40., 50.];
         let pop = super::sample_at_times(5000_u32, &times, branch);
         assert_eq!(pop.len(), times.len());

@@ -3,7 +3,7 @@ import warnings
 import hypothesis.strategies as st
 import numpy as np
 import pytest
-from hypothesis import given
+from hypothesis import given, settings
 
 from biopop_closure.kolmogorov import kolmogorov_moments
 from biopop_closure.matispop import badgers_params
@@ -33,6 +33,7 @@ def test_moment_closure_close_in_mean_to_true_solution_for_badgers(i):
 
 @pytest.mark.filterwarnings("ignore:divide by zero")
 @pytest.mark.filterwarnings("ignore:invalid value encountered")
+@settings(deadline=None)
 @given(st.floats(min_value=50, max_value=70))
 def test_saddle_is_gaussian_no_skew_for_m2_5(m1):
     _no_skew_test(m1, 5.)

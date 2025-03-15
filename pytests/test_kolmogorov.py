@@ -23,7 +23,7 @@ EPSILON = 1e-4
 
 
 @given(smallint, largeint)
-def test_kolmogorov_no_change(p0, nmax):
+def test_no_change(p0, nmax):
     pop = kolmogorov(0, 0, 0, 0, 0, np.linspace(0, 1, 20), p0, nmax)
     moo = first3moments(pop)
     assert np.all(moo[0, :] == p0)
@@ -32,7 +32,7 @@ def test_kolmogorov_no_change(p0, nmax):
 
 @settings(deadline=None)
 @given(*(3 * [posfloat] + [smallint, multiplicity, largeint]))
-def test_kolmogorov_multiplicity_is_positive_all_time(i, a1, a2, p0, m, nmax):
+def test_multiplicity_is_positive_all_time(i, a1, a2, p0, m, nmax):
     pop = kolmogorov_multiplicity(i, a1, a2, 0, 0, m, np.linspace(0, 1, 20), p0, nmax)
     assert np.all(pop >= -EPSILON)
     moments = first3moments(pop)
@@ -42,7 +42,7 @@ def test_kolmogorov_multiplicity_is_positive_all_time(i, a1, a2, p0, m, nmax):
 
 @settings(deadline=None)
 @given(posfloat, brlaw, smallint)
-def test_kolmogorov_sums_to_1(i, law, p0):
+def test_sums_to_1(i, law, p0):
     a1, a2, b1, b2, nmax = law
     pop = kolmogorov(i, a1, a2, b1, b2, np.linspace(0, 1, 20), p0, nmax)
     assert np.allclose(np.sum(pop, axis=0), 1, rtol=1e-3)
@@ -50,7 +50,7 @@ def test_kolmogorov_sums_to_1(i, law, p0):
 
 @settings(deadline=None)
 @given(posfloat, brlaw, multiplicity, smallint)
-def test_kolmogorov_multiplicity_sums_to_1(i, law, m, p0):
+def test_multiplicity_sums_to_1(i, law, m, p0):
     a1, a2, b1, b2, nmax = law
     pop = kolmogorov_multiplicity(i, a1, a2, b1, b2, m, np.linspace(0, 1, 20), p0, nmax)
     assert np.allclose(np.sum(pop, axis=0), 1, rtol=1e-3)
@@ -58,14 +58,14 @@ def test_kolmogorov_multiplicity_sums_to_1(i, law, m, p0):
 
 @settings(deadline=None)
 @given(posfloat, brlaw, smallint)
-def test_kolmogorov_multiplicity_is_kolmogorov_for_delta(i, law, p0):
+def test_multiplicity_is_kolmogorov_for_delta(i, law, p0):
     a1, a2, b1, b2, nmax = law
     pop0 = kolmogorov(i, a1, a2, b1, b2, np.linspace(0, 1, 20), p0, nmax)
     pop1 = kolmogorov_multiplicity(i, a1, a2, b1, b2, [1.], np.linspace(0, 1, 20), p0, nmax)
     assert np.allclose(pop0, pop1, rtol=1e-3, atol=1e-3)
 
 
-def test_kolmogorov_matrix_small_example():
+def test_matrix_small_example():
     i, a1, a2, = 1, 10, 5
     mat = kolmogorov_matrix(i, a1, a2, 0, 0, nmax=3).todense()
     handsol = np.array([[-i, a2, 0, 0],
@@ -76,7 +76,7 @@ def test_kolmogorov_matrix_small_example():
     assert np.allclose(mat, handsol, rtol=1e-3, atol=1e-3), (mat - handsol, mat, handsol)
 
 
-def test_kolmogorov_multiplicity_matrix_small_example():
+def test_multiplicity_matrix_small_example():
     i, a1, a2, = 1, 10, 5
     mu1 = 0.5
     mat = kolmogorov_multiplicity_matrix(i, a1, a2, 0, 0, [mu1, 1 - mu1], nmax=3).todense()
@@ -90,7 +90,7 @@ def test_kolmogorov_multiplicity_matrix_small_example():
 
 @settings(deadline=None, max_examples=50)
 @given(posfloat, brlaw, nontrivial_multiplicity)
-def test_kolmogorov_multiplicity_differs_by_matrix_for_non_delta_known_way(i, law, m):
+def test_multiplicity_differs_by_matrix_for_non_delta_known_way(i, law, m):
     a1, a2, b1, b2, nmax = law
     assume(m[0] < 0.8)
     mat0 = kolmogorov_matrix(i, a1, a2, b1, b2, nmax=nmax).todense()
@@ -102,3 +102,21 @@ def test_kolmogorov_multiplicity_differs_by_matrix_for_non_delta_known_way(i, la
             ivec = np.zeros_like(mat0[j, :j])
             ivec[-1] = i
             assert (not np.allclose(mat0[j, :j] - ivec, mat1[j, :j] - ivec, rtol=1e-3, atol=1e-6)), (j, mat1[j, :j])
+
+
+@settings(deadline=None, max_examples=5)
+@given(nontrivial_multiplicity)
+def test_population_zero_if_death_large_and_no_migration(m):
+    pop = kolmogorov_multiplicity(0, 1, 50, 0, 0, m, np.linspace(0, 3, 5), 1, 20)
+    assert np.allclose(pop[0, -2:], 1)
+
+
+@settings(deadline=None, max_examples=5)
+@given(posfloat, posfloat, nontrivial_multiplicity)
+def test_population_grows_if_k_is_supercritical(a1, a2, m):
+    nubar = np.sum(m * (np.arange(len(m))+1))
+    a1, a2 = (a1, a2) if (a1*nubar > a2) else (a2, a1)
+    pop = kolmogorov_multiplicity(0, a1, a2, 0, 0, m, np.linspace(0, 10, 20), 1, 200)
+    popearly, poplate = pop[:, 2], pop[:, -1]
+    mearly, mlate = map(lambda x: np.sum(x * np.arange(popearly.size)), (popearly, poplate))
+    assert mearly < mlate

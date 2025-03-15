@@ -5,6 +5,22 @@ import scipy as sp
 from scipy.integrate import solve_ivp
 
 
+def moment(pop: np.ndarray, k: int, axis: int = 0):
+    if pop.ndim > 2:
+        raise ValueError(f"Does not support dimensions over 2: {pop.ndim}>2")
+    weight = (np.arange(pop.shape[axis]) ** k)[:, np.newaxis]
+    match axis:
+        case 0:
+            return np.sum(pop * weight, axis=axis)
+        case 1:
+            return np.sum(pop * weight.T, axis=axis)
+        case _:
+            if axis < 0:
+                raise ValueError(f"Axis cannot be negative: {axis} is negative")
+            if axis >= pop.ndim:
+                raise ValueError(f"Axis beyond population dimensions: {axis}>{pop.ndim}")
+
+
 def dk1dt(i, a, b, k):
     return i + (a - b * k[0]) * k[0] - b * k[1]
 

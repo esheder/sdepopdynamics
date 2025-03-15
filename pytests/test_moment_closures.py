@@ -4,14 +4,33 @@ import hypothesis.strategies as st
 import numpy as np
 import pytest
 from hypothesis import given, settings
+import hypothesis.extra.numpy as nst
 
 from biopop_closure.kolmogorov import kolmogorov_moments
 from biopop_closure.matispop import badgers_params
-from biopop_closure.moment_closures import moment_closure, dkdt, gaussian_distribution, saddlepoint_distribution
+from biopop_closure.moment_closures import moment, moment_closure, dkdt, gaussian_distribution, saddlepoint_distribution
 
 posfloat = st.floats(min_value=1e-3, max_value=1)
 smallfloat = st.floats(min_value=1e-7, max_value=1e-5)
 smallint = st.integers(min_value=1, max_value=5)
+
+popvecs = nst.arrays(float, st.integers(min_value=2, max_value=10), elements=posfloat).map(lambda x: x/np.sum(x))
+
+
+@given(popvecs)
+def test_moments_computed_for_pop_is_1_for_0(pop):
+    assert np.isclose(moment(pop, k=0), 1)
+
+
+@given(popvecs, st.integers(0, 3), st.booleans())
+def test_moments_computed_for_same_pop_stays_same(pop, k, flip):
+    pops = np.empty((pop.size, 2), float)
+    pops[:, 0] = pop
+    pops[:, 1] = pop
+    pops = pops.T if flip else pops
+    m = moment(pops, k=k, axis=1 if flip else 0)
+    assert len(m) == 2
+    assert np.isclose(m[0], m[1])
 
 
 @given(*(3 * [posfloat]), *(2 * [smallfloat]), smallint)

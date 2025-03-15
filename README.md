@@ -43,3 +43,13 @@ You can consider contributing tests yourself, actually. It's a good place for ne
 ## Implementation
 Our implementation is currently done in Rust. It's faster this way than with Python.
 
+
+# Meaning of branching terms
+We follow the notation of Matis et al:
+a_n and b_n are linear and non-linear (feedback) terms, correspondingly.
+x_1 and x_2 are birth and death parameters, respectively, for any x.
+i is the immigration term
+
+m is the multiplicity probability vector.
+
+

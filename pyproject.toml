@@ -25,7 +25,6 @@ dependencies = [
     "numpy",
     "matplotlib",
     "pandas",
-    "pytest",
     "pyarrow"
 ]
 license = {file = "LICENSE"}

@@ -19,7 +19,9 @@ popvecs = nst.arrays(float, st.integers(min_value=2, max_value=10), elements=pos
 
 @given(popvecs)
 def test_moments_computed_for_pop_is_1_for_0(pop):
-    assert np.isclose(moment(pop, k=0), 1)
+    prob = moment(pop[:, np.newaxis], k=0)
+    assert prob.size == 1
+    assert np.isclose(prob, 1), ([float(v) for v in prob], [float(v) for v in pop])
 
 
 @given(popvecs, st.integers(0, 3), st.booleans())

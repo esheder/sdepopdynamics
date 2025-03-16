@@ -13,7 +13,7 @@ def get_df(p, t):
     return df[df.Time.between(t-EPS, t+EPS)]
 
 def get_moments(paths, t):
-    pop = pd.concat([get_df(p, t) for p in paths], axis=0).reset_index(drop=True).Population.values
+    pop = pd.concat([get_df(p, t) for p in paths], axis=0).reset_index(drop=True).Population.dropna().values
     m1 = kstat(pop, n=1)
     m2 = kstat(pop, n=2)
     m3 = kstat(pop, n=3)

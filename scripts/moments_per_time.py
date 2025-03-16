@@ -20,6 +20,14 @@ def get_moments(paths, t):
     return {'time': t, 'k1': m1, 'k2': m2, 'k3': m3}
 
 
+def get_moments_single(df, t):
+    df = df[df.Time.between(t-EPS, t+EPS)]
+    pop = df.reset_index(drop=True).Population.dropna().values
+    m1 = kstat(pop, n=1)
+    m2 = kstat(pop, n=2)
+    m3 = kstat(pop, n=3)
+    return {'time': t, 'k1': m1, 'k2': m2, 'k3': m3}
+
 
 if __name__ == '__main__':
     from argparse import ArgumentParser
@@ -31,7 +39,11 @@ if __name__ == '__main__':
     df = pd.read_parquet(args.dfs[0])
     times = np.array(sorted(df.Time.unique()))
     m1, m2, m3 = [], [], []
-    records = [get_moments(args.dfs, time) for time in times]
+    if len(args.dfs) > 1:
+        records = [get_moments(args.dfs, time) for time in times]
+    else:
+        df = pd.read_parquet(args.dfs[0])
+        records = [get_moments_single(df, time) for time in times]
     df = pd.DataFrame.from_records(records)
     if args.o is not None:
         df.to_parquet(args.o)

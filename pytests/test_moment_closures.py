@@ -1,4 +1,3 @@
-import warnings
 
 import hypothesis.strategies as st
 import numpy as np

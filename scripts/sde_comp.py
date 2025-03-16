@@ -2,12 +2,9 @@
 """Tools to model the effects of the moment closures"""
 
 import warnings
-from dataclasses import dataclass
 from functools import partial
 from pathlib import Path
-from typing import Callable
 import json
-from itertools import product
 
 import matplotlib.pyplot as plt
 import numpy as np

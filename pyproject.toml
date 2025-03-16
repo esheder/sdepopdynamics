@@ -46,3 +46,5 @@ markers = [
     "slow",
 ]
 
+[tool.ruff]
+line-length = 120

@@ -5,8 +5,7 @@ import scipy.stats as stat
 from argparse import ArgumentParser
 import matplotlib.pyplot as plt
 
-parser = ArgumentParser(description="Finds the skewness of the data and prints "
-                        "the time at which it is highest")
+parser = ArgumentParser(description="Finds the skewness of the data and prints the time at which it is highest")
 parser.add_argument("parquet", type=str, help="data to find skewness for")
 parser.add_argument("-out", type=str, help="Output figure file prefix")
 args = parser.parse_args()

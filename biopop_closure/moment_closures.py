@@ -30,17 +30,13 @@ def dk2dt(i, a, b, c, d, k):
 
 
 def dk3dt(i, a, b, c, d, k):
-    return (i + (a - b * k[0]) * k[0]
-            + (3 * c - b - 6 * d * k[0] - 6 * b * k[1]) * k[1]
-            + 3 * (a - d - 2 * b * k[0]) * k[2]
-            )
+    return (
+        i + (a - b * k[0]) * k[0] + (3 * c - b - 6 * d * k[0] - 6 * b * k[1]) * k[1] + 3 * (a - d - 2 * b * k[0]) * k[2]
+    )
 
 
 def dkdt(i, a, b, c, d, _, k):
-    return np.array((dk1dt(i, a, b, k),
-                     dk2dt(i, a, b, c, d, k),
-                     dk3dt(i, a, b, c, d, k)
-                     ))
+    return np.array((dk1dt(i, a, b, k), dk2dt(i, a, b, c, d, k), dk3dt(i, a, b, c, d, k)))
 
 
 def gaussian(*args, func=dkdt):
@@ -50,15 +46,13 @@ def gaussian(*args, func=dkdt):
     return der
 
 
-def moment_closure(func,
-                   i: float, a1: float, a2: float, b1: float, b2: float,
-                   t: np.ndarray, p0: float) -> np.ndarray:
+def moment_closure(func, i: float, a1: float, a2: float, b1: float, b2: float, t: np.ndarray, p0: float) -> np.ndarray:
     a = a1 - a2
     b = b1 + b2
     c = a1 + a2
     d = b1 - b2
     f = partial(func, i, a, b, c, d)
-    p0 = np.array([p0, 0., 0.])
+    p0 = np.array([p0, 0.0, 0.0])
     sol = solve_ivp(f, (t[0], t[-1]), p0, t_eval=t, rtol=1e-5)
     if sol.success:
         return sol.y
@@ -77,7 +71,7 @@ def gaussian_distribution(moments: np.ndarray, maxpop: int = 200) -> np.ndarray:
 
 
 def _psi(x: np.ndarray, k1: float, k2: float, k3: float) -> np.ndarray:
-    return k2 ** 2 + 2 * k3 * (x - k1)
+    return k2**2 + 2 * k3 * (x - k1)
 
 
 def saddlepoint_distribution(moments: np.ndarray, maxpop: int = 200) -> np.ndarray:
@@ -87,9 +81,8 @@ def saddlepoint_distribution(moments: np.ndarray, maxpop: int = 200) -> np.ndarr
     m1, m2, m3 = moments[0, :], moments[1, :], moments[2, :]
     for i, (k1, k2, k3) in enumerate(zip(m1, m2, m3)):
         psi = _psi(x, k1, k2, k3)
-        psi = np.where(psi >= 0, psi, 0.)
-        f = ((((4 * np.pi ** 2) * psi) ** (-0.25))
-             * np.exp(-(k2 ** 3 - 3 * k2 * psi + 2 * psi ** 1.5) / (6 * k3 ** 2)))
+        psi = np.where(psi >= 0, psi, 0.0)
+        f = (((4 * np.pi**2) * psi) ** (-0.25)) * np.exp(-(k2**3 - 3 * k2 * psi + 2 * psi**1.5) / (6 * k3**2))
         res[:, i] = np.where(psi >= 0, f, np.nan)
     return res
 

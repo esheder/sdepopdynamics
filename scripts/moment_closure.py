@@ -1,7 +1,5 @@
 #!/usr/bin/env python3
-"""Tools to model the effects of the moment closures
-
-"""
+"""Tools to model the effects of the moment closures"""
 
 import warnings
 from dataclasses import dataclass
@@ -16,9 +14,7 @@ import numpy as np
 import pandas as pd
 
 from biopop_closure.kolmogorov import kolmogorov_moments, kolmogorov_multiplicity
-from biopop_closure.moment_closures import (
-        relative_skewness, gaussian
-)
+from biopop_closure.moment_closures import relative_skewness, gaussian
 from biopop_closure.multiple_births import moment_closure, dkdt, moments_from_vector
 
 from matplotlib import rc_params
@@ -59,15 +55,15 @@ def plot_pop(plow, phigh, ilow, ihigh, dflow, dfhigh, p0: int, moment: int, save
     labels = {(i, cas): f"{cas}: I={i:.0f}" for i, cas in product((ilow, ihigh), refcolors.keys())}
     markers = {(i, cas): f"{refmarks[i]}{refcolors[cas]}" for i, cas in labels.keys()}
     values = {
-            (ilow, "reference"): (t, reference_low),
-            (ihigh, "reference"): (t, reference_high),
-            (ilow, "k3"): (t, k3_low),
-            (ihigh, "k3"): (t, k3_high),
-            (ilow, "gaussian"): (t, gaussian_low),
-            (ihigh, "gaussian"): (t, gaussian_high),
-            (ilow, "SDE"): (dflow.time.values, moments(dflow)),
-            (ihigh, "SDE"): (dfhigh.time.values, moments(dfhigh)),
-            }
+        (ilow, "reference"): (t, reference_low),
+        (ihigh, "reference"): (t, reference_high),
+        (ilow, "k3"): (t, k3_low),
+        (ihigh, "k3"): (t, k3_high),
+        (ilow, "gaussian"): (t, gaussian_low),
+        (ihigh, "gaussian"): (t, gaussian_high),
+        (ilow, "SDE"): (dflow.time.values, moments(dflow)),
+        (ihigh, "SDE"): (dfhigh.time.values, moments(dfhigh)),
+    }
 
     func = {1: plot_moment, 2: plot_moment, 3: plot_k3}[moment]
     func(refcolors, refmarks, labels, markers, values, moment=moment, save=save)
@@ -75,12 +71,12 @@ def plot_pop(plow, phigh, ilow, ihigh, dflow, dfhigh, p0: int, moment: int, save
 
 def plot_moment(refcolors, refmarks, labels, markers, values, moment, save, *, can_show=True):
     try:
-        name = {1: 'Expectation', 2: 'Variance', 3: 'Skewness'}[moment]
+        name = {1: "Expectation", 2: "Variance", 3: "Skewness"}[moment]
     except KeyError:
         raise ValueError(f"Plot moment does not work for moment {moment}")
     plt.figure()
     for key, (t, v) in values.items():
-        plt.plot(t, v[moment-1, :], markers[key], label=labels[key])
+        plt.plot(t, v[moment - 1, :], markers[key], label=labels[key])
     plt.xlabel("Time [yrs]")
     plt.ylabel(f"{name} [1]")
     plt.grid()
@@ -93,9 +89,14 @@ def plot_moment(refcolors, refmarks, labels, markers, values, moment, save, *, c
         if key[1] == "reference":
             continue
         reference_t, reference_data = values[(key[0], "reference")]
-        reference_y = reference_data[moment-1, :]
+        reference_y = reference_data[moment - 1, :]
         reference = np.interp(t, reference_t, reference_y)
-        plt.plot(t, 100*(v[moment-1, :]-reference)/reference, markers[key], label=labels[key])
+        plt.plot(
+            t,
+            100 * (v[moment - 1, :] - reference) / reference,
+            markers[key],
+            label=labels[key],
+        )
     plt.xlabel("Time [yrs]")
     plt.ylabel(f"{name} Error [%]")
     plt.grid()
@@ -108,11 +109,20 @@ def plot_moment(refcolors, refmarks, labels, markers, values, moment, save, *, c
 
 
 def plot_k3(refcolors, refmarks, labels, markers, values, save, **_):
-    plot_moment(refcolors, refmarks, labels, markers, values, save=save, moment=3, can_show=False)
-    
+    plot_moment(
+        refcolors,
+        refmarks,
+        labels,
+        markers,
+        values,
+        save=save,
+        moment=3,
+        can_show=False,
+    )
+
     plt.figure()
     with warnings.catch_warnings():
-        warnings.simplefilter('ignore')
+        warnings.simplefilter("ignore")
         for key, (t, v) in values.items():
             plt.plot(t, relative_skewness(v), markers[key], label=labels[key])
     plt.xlabel("Time [yrs]")
@@ -124,7 +134,7 @@ def plot_k3(refcolors, refmarks, labels, markers, values, save, **_):
 
     plt.figure()
     with warnings.catch_warnings():
-        warnings.simplefilter('ignore')
+        warnings.simplefilter("ignore")
         for key, (t, v) in values.items():
             if key[1] == "reference":
                 continue
@@ -133,20 +143,25 @@ def plot_k3(refcolors, refmarks, labels, markers, values, save, **_):
             for i in range(reference_data.shape[0]):
                 reference_y = reference_data[i, :]
                 reference[i, :] = np.interp(t, reference_t, reference_y)
-            plt.plot(t, relative_skewness(v)-relative_skewness(reference), markers[key], label=labels[key])
+            plt.plot(
+                t,
+                relative_skewness(v) - relative_skewness(reference),
+                markers[key],
+                label=labels[key],
+            )
     plt.xlabel("Time [yrs]")
     plt.ylabel(r"Relative Skewness Error ($\gamma$) [1]")
     plt.grid()
     plt.legend()
     if save:
         plt.savefig(f"{save}_relative_skewness_error.jpg", dpi=300)
-    
+
     if not save:
         plt.show()
 
 
 def load_json_file(path):
-    with path.open('r') as f:
+    with path.open("r") as f:
         return json.load(f)
 
 
@@ -158,17 +173,31 @@ def comparable(d, v):
     return dict((key if len(key) < 3 else key[0], value) for key, value in d.items() if key != v)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     from argparse import ArgumentParser
+
     parser = ArgumentParser(description="Tool to replicate the paper by Matis")
-    parser.add_argument('pop', type=Path, nargs=2, help="Population parameters JSON file")
-    parser.add_argument('sde', type=Path, nargs=2, help="Path to SDE parquets to compare")
-    parser.add_argument('pt0', type=int, help="Initial population")
-    parser.add_argument('moment', type=int, help="Moment to plot for")
-    parser.add_argument("--save", default=None, help="Prefix for figure files to save. Defaults to screen output")
+    parser.add_argument("pop", type=Path, nargs=2, help="Population parameters JSON file")
+    parser.add_argument("sde", type=Path, nargs=2, help="Path to SDE parquets to compare")
+    parser.add_argument("pt0", type=int, help="Initial population")
+    parser.add_argument("moment", type=int, help="Moment to plot for")
+    parser.add_argument(
+        "--save",
+        default=None,
+        help="Prefix for figure files to save. Defaults to screen output",
+    )
     args = parser.parse_args()
     p0, p1 = map(load_json_file, args.pop)
     df0, df1 = map(load_pandas, args.sde)
     d0, d1 = map(lambda x: comparable(x, "I"), (p0, p1))
-    plot_pop(d0, d1, p0["I"], p1["I"], df0, df1, p0=args.pt0, save=args.save, moment=args.moment)
-
+    plot_pop(
+        d0,
+        d1,
+        p0["I"],
+        p1["I"],
+        df0,
+        df1,
+        p0=args.pt0,
+        save=args.save,
+        moment=args.moment,
+    )

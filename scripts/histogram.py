@@ -1,136 +1,109 @@
 #!/usr/bin/env python3
 from pathlib import Path
-from typing import Literal
-import itertools as it
-
-import numpy as np
-import matplotlib.pyplot as plt
 import pandas as pd
-
-from biopop_closure.kolmogorov import kolmogorov
-from biopop_closure.matispop import foxes, badgers, foxes_params, badgers_params
-from biopop_closure.moment_closures import (
-    gaussian_distribution,
-    saddlepoint_distribution,
-    gaussian,
-    dkdt,
-)
+import numpy as np
+from functools import partial
+from biopop_closure.kolmogorov import kolmogorov_multiplicity
+from biopop_closure.multiple_births import dkdt, moment_closure, moments_from_vector
+from biopop_closure.moment_closures import gaussian, gaussian_distribution, saddlepoint_distribution
 
 
-def pop_distribution(
-    pop: Literal["foxes", "badgers"],
-    immigration: Literal["low", "high"],
-    approx: Literal["gaussian", "saddle", "exact"],
-    t: np.ndarray,
-    p0: float,
-) -> np.ndarray:
-    i = immigrations[pop][immigration]
-    match approx:
-        case "exact":
-            pop = kolmogorov(i, *pop_params[pop](i), t, p0)
-        case _:
-            popmom = fnames[pop](i, t, p0)
-            pop = resolvers[approx](popmom)
-    return pop
+EPS = 1e-3
 
 
-animals = ("foxes", "badgers")
-imms = ("low", "high")
-approxes = ("gaussian", "saddle", "exact")
+def cut_df(df, t):
+    return df[df.Time.between(t-EPS, t+EPS)]
+
+renames = {'I': 'i', 'multiplicity': 'm'}
+def rename(d):
+    return {renames[key] if key in renames else key: value for key, value in d.items()}
 
 
-def relerr(v, ref):
-    return 100 * (v - ref) / ref
+if __name__ == '__main__':
+    import argparse
+    import json
+    parser = argparse.ArgumentParser(description="Tool for histogram plots")
+    parser.add_argument("par", type=Path, help="Parameter JSON file used")
+    parser.add_argument("sde", type=Path, help="Parquet file for SDE data")
+    parser.add_argument("--p0", type=int, default=10, help="Initial population to use")
+    parser.add_argument("--nmax", type=int, default=200, help="Max population in Kolmogorov solve")
+    parser.add_argument("--range", type=int, nargs=2, default=(0, None), help="Range to cut the population in")
+    parser.add_argument("-t", type=float, default=None, help="Time to use. Defaults to last SDE time")
+    parser.add_argument("--save", action="store_true", help="Flag to save figures")
+    parser.add_argument("--prefix", default="moo", help="Figure filenames prefix")
+    args = parser.parse_args()
+
+    with args.par.open('r') as f:
+        par = json.load(f)
+        par = rename(par)
+    df = pd.read_parquet(args.sde)
+    t = args.t if args.t is not None else float(df.Time.max())
+    df = cut_df(df, t)
+
+    cut = slice(args.range[0], args.range[1] if args.range[1] else args.nmax)
+    xcut = slice(cut.start, cut.stop+1)
+
+    tvec = np.linspace(0, t, 20)
+    kpop = kolmogorov_multiplicity(**par, p0=args.p0, nmax=args.nmax, t=tvec)
+    par["m"] = moments_from_vector(par["m"])
+    m3 = moment_closure(dkdt, **par, p0=args.p0, t=tvec)
+    k3pop = saddlepoint_distribution(m3, maxpop=args.nmax)
+    k2pop = gaussian_distribution(moment_closure(partial(gaussian, func=dkdt), **par, p0=args.p0, t=tvec), maxpop=args.nmax)
+    kpop = kpop[:, -1].flatten()
+    k3pop = k3pop[:, -1].flatten()
+    k2pop = k2pop[:, -1].flatten()
+    xbins = np.arange(kpop.size + 1)
+
+    import matplotlib.pyplot as plt
+
+    plt.rcParams.update({'font.size': 20})
+
+    plt.figure()
+    hvr, hbr = np.histogram(df.Population.values, bins=xbins, density=True)
+    kpp, k3p, k2p, hv = map(lambda x: x[cut], (kpop, k3pop, k2pop, hvr))
+    x, hb = map(lambda x: x[xcut], (xbins, hbr))
+    plt.stairs(kpp, x, color='k', linewidth=2, label="Reference")
+    plt.stairs(hv, hb, color='b', linewidth=2, label="SDE")
+    plt.stairs(k3p, x, color="r", linewidth=2, label="Saddlepoint")
+    plt.stairs(k2p, x, color="m", linewidth=2, label="Gaussian")
+    plt.xlabel("Population")
+    plt.ylabel("Probability Density")
+    plt.grid()
+    plt.legend()
+    plt.tight_layout()
+    if args.save:
+        plt.savefig(f"{args.prefix}_pdf.jpg", dpi=500)
+
+   
+    plt.figure()
+    rcdf, k3cdf, k2cdf, scdf = map(lambda x: np.cumsum(x)[cut], (kpop, k3pop, k2pop, hvr))
+    plt.stairs(rcdf, x, color="k", linewidth=2, label="Reference")
+    plt.stairs(scdf, hb, color="b", linewidth=2, label="SDE")
+    if np.any(np.isfinite(k3cdf)):
+        plt.stairs(k3cdf, x, color="r", linewidth=2, label="Saddlepoint")
+    plt.stairs(k2cdf, x, color="m", linewidth=2, label="Gaussian")
+    plt.xlabel("Population")
+    plt.ylabel("Probability")
+    plt.grid()
+    plt.legend()
+    plt.tight_layout()
+    if args.save:
+        plt.savefig(f"{args.prefix}_cdf.jpg", dpi=500)
 
 
-if __name__ == "__main__":
-    from argparse import ArgumentParser
-
-    p = ArgumentParser(description="Tool to show histograms at equilibrium")
-    for a, i in it.product(animals, imms):
-        p.add_argument(f"--{a}_{i}", type=Path, help=f"Parquet file of {i} immigration {a}")
-    p.add_argument("--save", action="store_true", help="Flag to save plots")
-    p.add_argument("--ext", default="svg", help="Plot type for saved figures. Defaults to svg")
-    args = p.parse_args()
-    dfs = {(anim, st): pd.read_parquet(getattr(args, f"{anim}_{st}")) for anim, st in it.product(animals, imms)}
-    t = np.linspace(0, 10, 500)
-    pops = {
-        "foxes": {
-            "low": foxes(3, t, 6, func=kolmogorov),
-            "high": foxes(10, t, 6, func=kolmogorov),
-        },
-        "badgers": {
-            "low": badgers(2, t, 6, func=kolmogorov),
-            "high": badgers(6, t, 6, func=kolmogorov),
-        },
-    }
-    fnames = {"foxes": foxes, "badgers": badgers}
-    resolvers = {"gaussian": gaussian_distribution, "saddle": saddlepoint_distribution}
-    immigrations = {"foxes": {"low": 3, "high": 10}, "badgers": {"low": 2, "high": 6}}
-    solvefuncs = {"gaussian": gaussian, "saddle": dkdt}
-    pop_params = {"foxes": foxes_params, "badgers": badgers_params}
-    t = np.linspace(0, 50, 51)
-    pops = {
-        (animal, imm, approx): pop_distribution(animal, imm, approx, t, p0=6)
-        for animal, imm, approx in it.product(animals, imms, approxes)
-    }
-
-    for animal, imm in it.product(animals, imms):
-        g, s, k = [pops[(animal, imm, a)][:, -1] for a in approxes]
-        x = np.linspace(0, len(g) - 1, len(g))
-        mask = k > (np.max(k) / 100)
-        g, s, k, x = map(lambda v: v[mask], (g, s, k, x))
-        xbins = np.concatenate(([np.min(x) - 1], x, [np.max(x) + 1]))
-        plt.figure()
-        plt.plot(x, g, "b--", label="Gaussian")
-        plt.plot(x, s, "r-.", label="Saddlepoint")
-        if (animal, imm) in dfs:
-            dfs[(animal, imm)].Population.hist(bins=xbins, density=True, color="m", label="SDE")
-        plt.plot(x, k, "k-", label="Reference")
-        plt.legend()
-        plt.grid()
-        plt.xlabel("Population size [1]")
-        plt.ylabel("Probability [1]")
-        plt.title(f"Histogram at large time for {animal} with {imm} immigration")
-        plt.tight_layout()
-        if args.save:
-            plt.savefig(f"{animal}_{imm}_pdf.{args.ext}")
-
-        plt.figure()
-        gcdf, scdf, kcdf = map(np.cumsum, (g, s, k))
-        plt.plot(x, gcdf, "b--", label="Gaussian")
-        plt.plot(x, scdf, "r--", label="Saddlepoint")
-        plt.plot(x, kcdf, "k-", label="Reference")
-        if (animal, imm) in dfs:
-            nv = dfs[(animal, imm)].Population.values
-            h, edges = np.histogram(nv, bins=xbins, density=True)
-            hcdf = np.cumsum(h)
-            plt.stairs(hcdf, edges, color="m", label="SDE")
-        plt.legend()
-        plt.grid()
-        plt.xlabel("Population size [1]")
-        plt.ylabel("CDF [1]")
-        plt.title(f"CDF at large time for {animal} with {imm} immigration")
-        plt.tight_layout()
-        if args.save:
-            plt.savefig(f"{animal}_{imm}_cdf.{args.ext}")
-
-        plt.figure()
-        gerr, serr = map(lambda v: relerr(v, kcdf), (gcdf, scdf))
-        plt.plot(x, gerr, "b--", label="Gaussian")
-        plt.plot(x, serr, "r--", label="Saddlepoint")
-        if (animal, imm) in dfs:
-            centers = (edges[:-1] + edges[1:]) / 2
-            kcdf_i = np.interp(centers, x, kcdf)
-            plt.stairs(relerr(hcdf, kcdf_i), edges, color="m", label="SDE")
-        plt.legend()
-        plt.grid()
-        plt.xlabel("Population size [1]")
-        plt.ylabel("CDF Error [%]")
-        plt.title(f"CDF Error at large time for {animal} with {imm} immigration")
-        plt.tight_layout()
-        if args.save:
-            plt.savefig(f"{animal}_{imm}_hist.{args.ext}")
-
+    plt.figure()
+    plt.stairs(scdf-rcdf, x, color="b", linewidth=2, label="SDE")
+    if np.any(np.isfinite(k3cdf)):
+        plt.stairs(k3cdf-rcdf, x, color="r", linewidth=2, label="Saddlepoint")
+    plt.stairs(k2cdf-rcdf, x, color="m", linewidth=2, label="Gaussian")
+    plt.xlabel("Population")
+    plt.ylabel("CDF Error")
+    plt.grid()
+    plt.legend()
+    plt.tight_layout()
+    if args.save:
+        plt.savefig(f"{args.prefix}_cdf_error.jpg", dpi=500)
+    
+  
     if not args.save:
         plt.show()

@@ -134,7 +134,7 @@ fn main() {
         })
         .collect();
     let mut df: DataFrame = df!(
-        "Seed" => seeds.iter().zip(std::iter::repeat(ex.times.len())).flat_map(|(v, n)| std::iter::repeat(v).take(n)).copied().collect::<Vec<u64>>(),
+        "Seed" => seeds.iter().zip(std::iter::repeat(ex.times.len())).flat_map(|(v, n)| std::iter::repeat_n(v,n)).copied().collect::<Vec<u64>>(),
         "Time" => &ex.times.iter().cycle().take(ex.times.len()*seeds.len()).copied().collect::<Vec<f64>>(),
         "Population" => results.into_iter().flatten().collect::<Vec<f64>>()).expect("Data is created by us and should never fail");
     if let Some(mut f) = outfile {

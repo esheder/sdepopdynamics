@@ -1,4 +1,5 @@
 use clap::{Args, Parser, Subcommand};
+use indicatif::ProgressIterator;
 use polars::prelude::{df, DataFrame, ParquetWriter};
 use popfeedback::Parameters;
 use rand_chacha::rand_core::SeedableRng;
@@ -98,11 +99,11 @@ fn main() {
         if args.o.is_some() {
             println!("Output file: {:?}", args.o.clone().unwrap())
         }
-        println!("Seeds: {:?}", seeds);
+        println!("Seeds: {seeds:?}");
         println!("Initial population: {}", args.n);
         println!("Times: {:?}", &ex.times);
         match &args.model {
-            Model::Sde { .. } => println!("Time step: {}", dt),
+            Model::Sde { .. } => println!("Time step: {dt:?}"),
             Model::Branching { .. } => (),
         }
     }
@@ -117,6 +118,7 @@ fn main() {
 
     let results: Vec<Vec<f64>> = seeds
         .iter()
+        .progress()
         .map(|seed| {
             let mut rng = ChaCha20Rng::seed_from_u64(*seed);
 
@@ -142,7 +144,7 @@ fn main() {
             .finish(&mut df)
             .expect("We gave it a valid file");
     } else {
-        println!("{:?}", df);
+        println!("{df:?}");
     }
 }
 

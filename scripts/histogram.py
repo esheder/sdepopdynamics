@@ -19,6 +19,13 @@ def rename(d):
     return {renames[key] if key in renames else key: value for key, value in d.items()}
 
 
+def cumsum(v):
+    mask = np.isfinite(v)
+    cp = v.copy()
+    cp[~mask] = 0.
+    return np.cumsum(cp)
+
+
 if __name__ == '__main__':
     import argparse
     import json
@@ -31,11 +38,21 @@ if __name__ == '__main__':
     parser.add_argument("-t", type=float, default=None, help="Time to use. Defaults to last SDE time")
     parser.add_argument("--save", action="store_true", help="Flag to save figures")
     parser.add_argument("--prefix", default="moo", help="Figure filenames prefix")
+    parser.add_argument("--debug", action="store_true", help="Flag to print multiplicity data")
+    parser.add_argument("--no-norm", action="store_true", help="Flag to not normalize the multiplicity")
     args = parser.parse_args()
 
     with args.par.open('r') as f:
         par = json.load(f)
         par = rename(par)
+    if args.debug:
+        print(par['m'])
+        exit(0)
+    if not args.no_norm:
+        s = np.sum(par['m'])
+        par['m'] = [v/s for v in par['m']]
+
+
     df = pd.read_parquet(args.sde)
     t = args.t if args.t is not None else float(df.Time.max())
     df = cut_df(df, t)
@@ -76,7 +93,7 @@ if __name__ == '__main__':
 
    
     plt.figure()
-    rcdf, k3cdf, k2cdf, scdf = map(lambda x: np.cumsum(x)[cut], (kpop, k3pop, k2pop, hvr))
+    rcdf, k3cdf, k2cdf, scdf = map(lambda x: cumsum(x)[cut], (kpop, k3pop, k2pop, hvr))
     plt.stairs(rcdf, x, color="k", linewidth=2, label="Reference")
     plt.stairs(scdf, hb, color="b", linewidth=2, label="SDE")
     if np.any(np.isfinite(k3cdf)):
@@ -92,10 +109,14 @@ if __name__ == '__main__':
 
 
     plt.figure()
-    plt.stairs(scdf-rcdf, x, color="b", linewidth=2, label="SDE")
+    plt.stairs(scdf-rcdf, x, 
+               color="b", linestyle='-', linewidth=2, label="SDE")
+    mask = np.isfinite(k3cdf)
     if np.any(np.isfinite(k3cdf)):
-        plt.stairs(k3cdf-rcdf, x, color="r", linewidth=2, label="Saddlepoint")
-    plt.stairs(k2cdf-rcdf, x, color="m", linewidth=2, label="Gaussian")
+        plt.stairs(k3cdf-rcdf, x, 
+                   color="r", linestyle='--', linewidth=2, label="Saddlepoint")
+    plt.stairs(k2cdf-rcdf, x, 
+               color="m", linestyle='-.', linewidth=2, label="Gaussian")
     plt.xlabel("Population")
     plt.ylabel("CDF Error")
     plt.grid()
@@ -103,6 +124,10 @@ if __name__ == '__main__':
     plt.tight_layout()
     if args.save:
         plt.savefig(f"{args.prefix}_cdf_error.jpg", dpi=500)
+    print(f"SDE error sum: {np.sum(np.diff(scdf-rcdf))}")
+    print(f"K3 error sum: {np.sum(np.diff(k3cdf[mask]-rcdf[mask]))}")
+    print(f"K2 error sum: {np.sum(np.diff(k2cdf-rcdf))}")
+    
     
   
     if not args.save:

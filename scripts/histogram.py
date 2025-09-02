@@ -112,7 +112,7 @@ if __name__ == '__main__':
     plt.stairs(scdf-rcdf, x, 
                color="b", linestyle='-', linewidth=2, label="SDE")
     mask = np.isfinite(k3cdf)
-    if np.any(np.isfinite(k3cdf)):
+    if np.any(mask):
         plt.stairs(k3cdf-rcdf, x, 
                    color="r", linestyle='--', linewidth=2, label="Saddlepoint")
     plt.stairs(k2cdf-rcdf, x, 
@@ -124,11 +124,20 @@ if __name__ == '__main__':
     plt.tight_layout()
     if args.save:
         plt.savefig(f"{args.prefix}_cdf_error.jpg", dpi=500)
-    print(f"SDE error sum: {np.sum(np.diff(scdf-rcdf))}")
-    print(f"K3 error sum: {np.sum(np.diff(k3cdf[mask]-rcdf[mask]))}")
-    print(f"K2 error sum: {np.sum(np.diff(k2cdf-rcdf))}")
-    
-    
-  
+
+    order = ["SDE", "K3", "K2"]
+    masked = lambda key, x: x if key != "K3" else x[mask]
+    sum_errors = {key: np.sum(np.abs(val[np.isfinite(val)]-kpop[np.isfinite(val)])) / np.sum(np.isfinite(val))
+                  for key, val in zip(order, [hvr, k3pop, k2pop])}
+    max_errors = {key: np.max(np.abs(val[np.isfinite(val)]-kpop[np.isfinite(val)])) / np.sum(np.isfinite(val))
+                  for key, val in zip(order, [hvr, k3pop, k2pop])}
+    for word, d in zip(("sum", "max"), (sum_errors, max_errors)):
+        for key, value in d.items():
+            print(f"{key} {word} error: {value:.3e}")
+    with open(f"{args.prefix}_errors.csv", 'w') as f:
+        f.write("SDE sum,K3 sum,K2 sum,SDE max,K3 max,K2 max\n")
+        f.write(','.join([f"{v:.4e}" for v in sum_errors.values()] 
+                         + [f"{v:.4e}" for v in max_errors.values()]))
+     
     if not args.save:
         plt.show()

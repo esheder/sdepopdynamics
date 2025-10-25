@@ -126,7 +126,7 @@ if __name__ == '__main__':
         plt.savefig(f"{args.prefix}_cdf_error.jpg", dpi=500)
 
     order = ["SDE", "K3", "K2"]
-    masked = lambda key, x: x if key != "K3" else x[mask]
+
     sum_errors = {key: np.sum(np.abs(val[np.isfinite(val)]-kpop[np.isfinite(val)])) / np.sum(np.isfinite(val))
                   for key, val in zip(order, [hvr, k3pop, k2pop])}
     max_errors = {key: np.max(np.abs(val[np.isfinite(val)]-kpop[np.isfinite(val)])) / np.sum(np.isfinite(val))

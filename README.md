@@ -20,7 +20,9 @@ but you can always simply use `cargo` to `cargo build` and run the application
 yourself.
 
 The python module is used for comparisons with other codes and for a reference solution,
-and you probably don't need it yourself.
+and you probably don't need it yourself, unless you're trying to review our use of this reference.
+One can install this package with `pip install -e .`, and the test requirements with `pip install -r test_requirements.txt`.
+One can then test the code by running `pytest -v` in the `pytests` folder.
 
 
 ## How to use this code
@@ -28,13 +30,13 @@ We mostly expect researchers to want one of two things: Either they want to gene
 paths of the population distribution, or they want to sample from the asymptotic distribution.
 We provide tools for both cases in both models.
 
-Examples are given in the examples folder, where there are scripts that
-use these cases, with comments to mark what we do.
+Examples are given in the `runs` directory, and the `scripts` directory includes some scripts that show how this code can be run.
+The examples in the `runs` folder show the inputs we use in an upcoming paper which we hope to publish soon.
 
 ## Project Structure
 Under the `src` directory you will find our source code, written in Rust. 
 
-Under the `examples` directory you will find examples for how to use the code. These appear as scripts.
+Under the `runs` directory you will find examples for how to use the code. These appear as scripts.
 
 Under the `tests` directory you will find our unit tests.
 We could have more of these, and if we get more researchers interested in this code this would be higher own our to-do list.

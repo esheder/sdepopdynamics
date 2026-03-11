@@ -8,6 +8,7 @@ __pycache__
 runs
 *.jpg
 *.svg
+manuscript
 
 # Added by cargo
 

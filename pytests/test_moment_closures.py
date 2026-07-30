@@ -1,17 +1,17 @@
 
+import hypothesis.extra.numpy as nst
 import hypothesis.strategies as st
 import numpy as np
 import pytest
 from hypothesis import given, settings
-import hypothesis.extra.numpy as nst
 
 from biopop_closure.kolmogorov import kolmogorov_moments
 from biopop_closure.matispop import badgers_params
 from biopop_closure.moment_closures import (
-    moment,
-    moment_closure,
     dkdt,
     gaussian_distribution,
+    moment,
+    moment_closure,
     saddlepoint_distribution,
 )
 

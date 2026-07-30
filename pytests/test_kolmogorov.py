@@ -1,12 +1,12 @@
 import hypothesis.strategies as st
 import numpy as np
-from hypothesis import given, settings, assume
+from hypothesis import assume, given, settings
 
 from biopop_closure.kolmogorov import (
-    kolmogorov,
     first3moments,
-    kolmogorov_multiplicity,
+    kolmogorov,
     kolmogorov_matrix,
+    kolmogorov_multiplicity,
     kolmogorov_multiplicity_matrix,
 )
 
@@ -147,5 +147,5 @@ def test_population_grows_if_k_is_supercritical(a1, a2, m):
     a1, a2 = (a1, a2) if (a1 * nubar > a2) else (a2, a1)
     pop = kolmogorov_multiplicity(0, a1, a2, 0, 0, m, np.linspace(0, 10, 20), 1, 200)
     popearly, poplate = pop[:, 2], pop[:, -1]
-    mearly, mlate = map(lambda x: np.sum(x * np.arange(popearly.size)), (popearly, poplate))
+    mearly, mlate = (np.sum(x * np.arange(popearly.size)) for x in (popearly, poplate))
     assert mearly < mlate

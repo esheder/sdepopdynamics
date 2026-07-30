@@ -2,10 +2,10 @@ import numpy as np
 import pytest
 
 from biopop_closure.matispop import (
+    _foxes_params_multiple_births_paper,
+    badgers_multiplicity_vector,
     badgers_params,
     badgers_params_multiple_births,
-    badgers_multiplicity_vector,
-    _foxes_params_multiple_births_paper,
     foxes_params_multiple_births,
 )
 
@@ -18,7 +18,7 @@ def test_badgers_params_with_paper():
 
 
 def test_badgers_params_mul_with_paper():
-    a1, _, b1, _ = badgers_params(2)
+    a1, _, _b1, _ = badgers_params(2)
     a1m, _, b1m, _, m = badgers_params_multiple_births(2)
     pop = np.arange(5) + 1
     prob = badgers_multiplicity_vector
@@ -38,5 +38,5 @@ def test_foxes_multiplicity_from_paper_meets_its_reported_values():
 
 
 def test_foxes_params_mul_with_paper():
-    a1m, _, _, _, m = _foxes_params_multiple_births_paper(2)
+    a1m, _, _, _, _m = _foxes_params_multiple_births_paper(2)
     assert np.isclose(a1m, 0.2247, rtol=1e-4)

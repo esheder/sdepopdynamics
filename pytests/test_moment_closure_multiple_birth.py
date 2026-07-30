@@ -1,12 +1,14 @@
-import numpy as np
 import hypothesis.strategies as st
+import numpy as np
 from hypothesis import given, settings
 
-from biopop_closure.multiple_births import moments_from_vector, moment_closure, dkdt
 from biopop_closure.moment_closures import (
-    moment_closure as single_birth,
     dkdt as single_dkdt,
 )
+from biopop_closure.moment_closures import (
+    moment_closure as single_birth,
+)
+from biopop_closure.multiple_births import dkdt, moment_closure, moments_from_vector
 
 ifloat = st.floats(min_value=2, max_value=6)
 posfloat = st.floats(min_value=1e-3, max_value=1)

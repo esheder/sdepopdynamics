@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
-from pathlib import Path
-import pandas as pd
-import numpy as np
+import sys
 from functools import partial
-from biopop_closure.kolmogorov import kolmogorov_multiplicity
-from biopop_closure.multiple_births import dkdt, moment_closure, moments_from_vector
-from biopop_closure.moment_closures import gaussian, gaussian_distribution, saddlepoint_distribution
+from pathlib import Path
 
+import numpy as np
+import pandas as pd
+
+from biopop_closure.kolmogorov import kolmogorov_multiplicity
+from biopop_closure.moment_closures import gaussian, gaussian_distribution, saddlepoint_distribution
+from biopop_closure.multiple_births import dkdt, moment_closure, moments_from_vector
 
 EPS = 1e-3
 
@@ -16,7 +18,7 @@ def cut_df(df, t):
 
 renames = {'I': 'i', 'multiplicity': 'm'}
 def rename(d):
-    return {renames[key] if key in renames else key: value for key, value in d.items()}
+    return {renames.get(key, key): value for key, value in d.items()}
 
 
 def cumsum(v):
@@ -47,7 +49,7 @@ if __name__ == '__main__':
         par = rename(par)
     if args.debug:
         print(par['m'])
-        exit(0)
+        sys.exit(0)
     if not args.no_norm:
         s = np.sum(par['m'])
         par['m'] = [v/s for v in par['m']]
@@ -77,8 +79,8 @@ if __name__ == '__main__':
 
     plt.figure()
     hvr, hbr = np.histogram(df.Population.values, bins=xbins, density=True)
-    kpp, k3p, k2p, hv = map(lambda x: x[cut], (kpop, k3pop, k2pop, hvr))
-    x, hb = map(lambda x: x[xcut], (xbins, hbr))
+    kpp, k3p, k2p, hv = (x[cut] for x in (kpop, k3pop, k2pop, hvr))
+    x, hb = (x[xcut] for x in (xbins, hbr))
     plt.stairs(kpp, x, color='k', linewidth=2, label="Reference")
     plt.stairs(hv, hb, color='b', linewidth=2, label="SDE")
     plt.stairs(k3p, x, color="r", linewidth=2, label="Saddlepoint")
@@ -93,7 +95,7 @@ if __name__ == '__main__':
 
    
     plt.figure()
-    rcdf, k3cdf, k2cdf, scdf = map(lambda x: cumsum(x)[cut], (kpop, k3pop, k2pop, hvr))
+    rcdf, k3cdf, k2cdf, scdf = (cumsum(x)[cut] for x in (kpop, k3pop, k2pop, hvr))
     plt.stairs(rcdf, x, color="k", linewidth=2, label="Reference")
     plt.stairs(scdf, hb, color="b", linewidth=2, label="SDE")
     if np.any(np.isfinite(k3cdf)):

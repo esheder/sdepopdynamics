@@ -1,20 +1,19 @@
 #!/usr/bin/env python3
 """Tools to model the effects of the moment closures"""
 
+import json
 import warnings
 from functools import partial
 from pathlib import Path
-import json
 
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+from matplotlib import rc_params
 
 from biopop_closure.kolmogorov import kolmogorov_moments, kolmogorov_multiplicity
-from biopop_closure.moment_closures import relative_skewness, gaussian
-from biopop_closure.multiple_births import moment_closure, dkdt, moments_from_vector
-
-from matplotlib import rc_params
+from biopop_closure.moment_closures import gaussian, relative_skewness
+from biopop_closure.multiple_births import dkdt, moment_closure, moments_from_vector
 
 rc_params()
 
@@ -38,7 +37,7 @@ def change_m(d):
     return d
 
 
-def plot_pop(p, i, df, p0: int, moment: int, nmax: int, save: str = None):
+def plot_pop(p, i, df, p0: int, moment: int, nmax: int, save: str | None = None):
     t = np.linspace(0, 50, 500)
     reference = kolmogorov(**p, i=i, t=t, p0=p0, nmax=nmax)
     p = change_m(p)
@@ -150,7 +149,7 @@ def load_pandas(path):
 
 
 def comparable(d, v):
-    return dict((key if len(key) < 3 else key[0], value) for key, value in d.items() if key != v)
+    return {key if len(key) < 3 else key[0]: value for key, value in d.items() if key != v}
 
 
 if __name__ == "__main__":

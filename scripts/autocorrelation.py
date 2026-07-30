@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 
+from pathlib import Path
+
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
-from pathlib import Path
+
 
 def autocorrelation(df, t1, t2):
     xt1, xt2 = df[df.Time == t1], df[df.Time == t2]
@@ -23,7 +25,7 @@ if __name__ == '__main__':
     dfsde = pd.read_parquet(args.sde)
     dfref = pd.read_parquet(args.ref)
 
-    times = list(sorted(dfsde[dfsde.Time >= 10.0].Time.unique()))
+    times = sorted(dfsde[dfsde.Time >= 10.0].Time.unique())
     autosde, autoref = map(np.array, ([autocorrelation(df, times[0], t) for t in times[1:]] for df in (dfsde, dfref)))
     dt = [t-times[0] for t in times[1:]]
    

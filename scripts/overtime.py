@@ -1,22 +1,25 @@
 #!/usr/bin/env python3
-from pathlib import Path
-import pandas as pd
-import numpy as np
 from functools import partial
+from pathlib import Path
+
+import numpy as np
+import pandas as pd
+
 from biopop_closure.kolmogorov import kolmogorov_moments, kolmogorov_multiplicity
-from biopop_closure.multiple_births import dkdt, moment_closure, moments_from_vector
 from biopop_closure.moment_closures import gaussian
+from biopop_closure.multiple_births import dkdt, moment_closure, moments_from_vector
+
+renames = {"I": "i", "multiplicity": "m"}
 
 
-
-renames = {'I': 'i', 'multiplicity': 'm'}
 def rename(d):
-    return {renames[key] if key in renames else key: value for key, value in d.items()}
+    return {renames.get(key, key): value for key, value in d.items()}
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     import argparse
     import json
+
     parser = argparse.ArgumentParser(description="Tool for histogram plots")
     parser.add_argument("par", type=Path, help="Parameter JSON file used")
     parser.add_argument("sde", type=Path, help="Parquet file for SDE data")
@@ -27,12 +30,11 @@ if __name__ == '__main__':
     parser.add_argument("--prefix", default="moo", help="Figure filenames prefix")
     args = parser.parse_args()
 
-    with args.par.open('r') as f:
+    with args.par.open("r") as f:
         par = json.load(f)
         par = rename(par)
     df = pd.read_parquet(args.sde)
     t = args.t if args.t is not None else float(df.time.max())
-
 
     tvec = np.linspace(0, t, 100)
     kmom = kolmogorov_moments(func=kolmogorov_multiplicity, **par, p0=args.p0, nmax=args.nmax, t=tvec)
@@ -42,19 +44,19 @@ if __name__ == '__main__':
 
     import matplotlib.pyplot as plt
 
-    plt.rcParams.update({'font.size': 20})
+    plt.rcParams.update({"font.size": 20})
     tsde = df.time.values
 
     for i in range(1, 4):
-        kpp, k3p, k2p = map(lambda x: x[i-1, :], (kmom, k3m, k2m))
+        kpp, k3p, k2p = (x[i - 1, :] for x in (kmom, k3m, k2m))
         kv = df[f"k{i}"].values
         plt.figure()
         plt.plot(tvec, kpp, color="k", linewidth=2, label="Reference")
         plt.plot(tvec, k3p, color="r", linewidth=2, label="Saddlepoint")
         plt.plot(tvec, k2p, color="m", linewidth=2, label="Gaussian")
-        plt.plot(tsde, kv,  color="b", linewidth=2, label="SDE")
+        plt.plot(tsde, kv, color="b", linewidth=2, label="SDE")
         plt.xlabel("Time")
-        plt.ylabel(f"{dict([(1, 'First'), (2, 'Second'), (3, 'Third')])[i]} Moment")
+        plt.ylabel(f"{ {1: 'First', 2: 'Second', 3: 'Third'}[i] } Moment")
         plt.grid()
         plt.legend()
         plt.tight_layout()
@@ -63,13 +65,16 @@ if __name__ == '__main__':
         if i >= 3:
             continue
         plt.figure()
-        def err(x): return 100*(x-kpp)/kpp
+
+        def err(x, kpp=kpp):
+            return 100 * (x - kpp) / kpp
+
         plt.plot(tvec, err(k3p), color="r", linewidth=2, label="Saddlepoint")
         plt.plot(tvec, err(k2p), color="m", linewidth=2, label="Gaussian")
         kvc = np.interp(tvec, tsde, kv)
         plt.plot(tvec, err(kvc), color="b", linewidth=2, label="SDE")
         plt.xlabel("Time")
-        plt.ylabel(f"{dict([(1, 'First'), (2, 'Second'), (3, 'Third')])[i]} Moment Error [%]")
+        plt.ylabel(f"{ {1: 'First', 2: 'Second', 3: 'Third'}[i] } Moment Error [%]")
         plt.grid()
         plt.legend()
         plt.tight_layout()

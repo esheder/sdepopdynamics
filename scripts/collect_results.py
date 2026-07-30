@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 import argparse
-from typing import Iterable
+from collections.abc import Iterable
 from os import listdir
 from pathlib import Path
-import pandas as pd
-import numpy as np
 
+import numpy as np
+import pandas as pd
 
 full_range = (-np.inf, np.inf)
 

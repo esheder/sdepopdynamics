@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 
+from argparse import ArgumentParser
+
+import matplotlib.pyplot as plt
 import pandas as pd
 import scipy.stats as stat
-from argparse import ArgumentParser
-import matplotlib.pyplot as plt
 
 parser = ArgumentParser(description="Finds the skewness of the data and prints the time at which it is highest")
 parser.add_argument("parquet", type=str, help="data to find skewness for")

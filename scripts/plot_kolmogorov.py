@@ -1,16 +1,18 @@
 #!/usr/bin/env python3
 
-import json
 import argparse
-import numpy as np
+import json
 from pathlib import Path
+
+import matplotlib.pyplot as plt
+import numpy as np
+
 from biopop_closure.kolmogorov import kolmogorov_multiplicity
 from biopop_closure.moment_closures import moment
-import matplotlib.pyplot as plt
 
 
 def _key_replacement(d, dr):
-    return {dr[key] if key in dr else key: val for key, val in d.items()}
+    return {dr.get(key, key): val for key, val in d.items()}
 
 
 parser = argparse.ArgumentParser(description="Tool to visualize json parameter results")

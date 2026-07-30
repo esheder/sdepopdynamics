@@ -1,19 +1,19 @@
 #!/usr/bin/env python3
+import itertools as it
 from pathlib import Path
 from typing import Literal
-import itertools as it
 
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
 
 from biopop_closure.kolmogorov import kolmogorov
-from biopop_closure.matispop import foxes, badgers, foxes_params, badgers_params
+from biopop_closure.matispop import badgers, badgers_params, foxes, foxes_params
 from biopop_closure.moment_closures import (
+    dkdt,
+    gaussian,
     gaussian_distribution,
     saddlepoint_distribution,
-    gaussian,
-    dkdt,
 )
 
 
@@ -79,7 +79,7 @@ if __name__ == "__main__":
         g, s, k = [pops[(animal, imm, a)][:, -1] for a in approxes]
         x = np.linspace(0, len(g) - 1, len(g))
         mask = k > (np.max(k) / 100)
-        g, s, k, x = map(lambda v: v[mask], (g, s, k, x))
+        g, s, k, x = (v[mask] for v in (g, s, k, x))
         xbins = np.concatenate(([np.min(x) - 1], x, [np.max(x) + 1]))
         plt.figure()
         plt.plot(x, g, "b--", label="Gaussian")
@@ -116,7 +116,7 @@ if __name__ == "__main__":
             plt.savefig(f"{animal}_{imm}_cdf.{args.ext}")
 
         plt.figure()
-        gerr, serr = map(lambda v: relerr(v, kcdf), (gcdf, scdf))
+        gerr, serr = (relerr(v, kcdf) for v in (gcdf, scdf))
         plt.plot(x, gerr, "b--", label="Gaussian")
         plt.plot(x, serr, "r--", label="Saddlepoint")
         if (animal, imm) in dfs:

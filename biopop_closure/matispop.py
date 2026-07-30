@@ -3,19 +3,20 @@ from functools import partial
 
 import numpy as np
 
-from biopop_closure.moment_closures import moment_closure, dkdt
-from biopop_closure.multiple_births import (
-    moment_closure as multiple_closure,
-    dkdt as multiple_dkdt,
-)
+from biopop_closure.moment_closures import dkdt, moment_closure
+from biopop_closure.multiple_births import dkdt as multiple_dkdt
+from biopop_closure.multiple_births import moment_closure as multiple_closure
+
+mom_reg = partial(moment_closure, dkdt)
+mom_mul = partial(multiple_closure, multiple_dkdt)
 
 
-def badgers(i: float, t: np.ndarray, p0: float, func=partial(moment_closure, dkdt)):
+def badgers(i: float, t: np.ndarray, p0: float, func=mom_reg):
     a1, a2, b1, b2 = badgers_params(i)
     return func(i, a1, a2, b1, b2, t, p0)
 
 
-def badgers_mul(i: float, t: np.ndarray, p0: float, func=partial(multiple_closure, multiple_dkdt)):
+def badgers_mul(i: float, t: np.ndarray, p0: float, func=mom_mul):
     a1, a2, b1, b2, m = badgers_params_multiple_births(i)
     return func(i, a1, a2, b1, b2, m, t, p0)
 
@@ -44,7 +45,7 @@ def badgers_params_multiple_births(i):
 badgers_multiplicity_vector = np.array((0.11, 0.51, 0.28, 0.08, 0.02))
 
 
-def foxes(i: float, t: np.ndarray, p0: float, func=partial(moment_closure, dkdt)):
+def foxes(i: float, t: np.ndarray, p0: float, func=mom_reg):
     a1, a2, b1, b2 = foxes_params(i)
     return func(i, a1, a2, b1, b2, t, p0)
 
@@ -77,8 +78,8 @@ def foxes_params_multiple_births(i):
 
 
 if __name__ == "__main__":
-    from argparse import ArgumentParser
     import json
+    from argparse import ArgumentParser
     from pathlib import Path
 
     populations = {

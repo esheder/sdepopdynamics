@@ -300,15 +300,21 @@ where
 /// exit_time(1000., 900., 1100., 1e-3, func);
 ///
 /// ```
-pub fn exit_time<F, N>(n0: N, low: N, high: N, dt: f64, mut f: F) -> f64
+pub fn exit_time<F, N1, N2, N3>(n0: N1, low: N3, high: N3, dt: f64, mut f: F) -> f64
 where
-    F: FnMut(N, f64) -> N,
-    N: Into<f64> + Copy + PartialOrd,
+    F: FnMut(N1, f64) -> N2,
+    N1: Into<f64> + Copy,
+    N2: Into<N1>,
+    N3: Into<f64>,
 {
     let mut now = 0.;
-    let mut n: N = n0;
-    while low < n && n < high {
-        n = f(n, dt);
+    let mut psize: f64 = n0.into();
+    let mut n = n0;
+    let high = high.into();
+    let low = low.into();
+    while low < psize && psize < high {
+        n = f(n, dt).into();
+        psize = n.into();
         now += dt;
     }
     now

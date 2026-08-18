@@ -31,6 +31,10 @@ struct Cli {
     /// Debug flag
     #[arg(short, long)]
     debug: bool,
+
+    /// Model parameters
+    #[command(flatten)]
+    params: Params,
 }
 
 #[derive(Debug, Subcommand)]
@@ -53,45 +57,30 @@ enum SimType {
         model: Model,
 
         /// Low population bound
-        #[arg(short, long, value_name = "LowerBound")]
+        #[arg(long, value_name = "LowerBound")]
         low: u32,
 
         /// High population bound
-        #[arg(short, long, value_name = "UpperBound")]
+        #[arg(long, value_name = "UpperBound")]
         high: u32,
+
+        /// Time step size
+        #[arg(long, value_name = "TimeStep")]
+        step: f64,
     },
 }
 
 #[derive(Debug, Subcommand)]
 enum Model {
     /// Branching process
-    Branching {
-        #[command(flatten)]
-        ex: Params,
-    },
+    Branching {},
 
     /// Stochastic Differential Equation
     Sde {
         /// Time step size
         #[arg(value_name = "delt")]
         dt: f64,
-
-        #[command(flatten)]
-        ex: Params,
     },
-}
-
-fn par_from_model(model: Model) -> Parameters {
-    let ex = match model {
-        Model::Sde { dt: _, ex } => ex,
-        Model::Branching { ex } => ex,
-    };
-    if let Some(path) = &ex.path.as_ref() {
-        Parameters::from_json_file(path)
-    } else {
-        let v: Vec<f64> = ex.values.as_deref().unwrap().to_vec();
-        Parameters::from_vec(&v)
-    }
 }
 
 #[derive(Args, Debug)]
@@ -113,18 +102,11 @@ fn main() {
         _ => args.seeds,
     };
 
-    let model = match args.simulation {
-        SimType::DynSample { model, times: _ } => model,
-        SimType::ExitTime {
-            model,
-            low: _,
-            high: _,
-        } => model,
-    };
-
-    let (dt, params) = match model {
-        Model::Sde { dt, ex } => (dt, ex),
-        Model::Branching { ex } => (0., ex),
+    let params = if let Some(path) = &args.params.path.as_ref() {
+        Parameters::from_json_file(path)
+    } else {
+        let v: Vec<f64> = args.params.values.as_deref().unwrap().to_vec();
+        Parameters::from_vec(&v)
     };
 
     if args.v {
@@ -135,26 +117,38 @@ fn main() {
         println!("Seeds: {seeds:?}");
         println!("Initial population: {}", args.n);
         match args.simulation {
-            SimType::DynSample { model: _, times } => {
+            SimType::DynSample {
+                ref model,
+                ref times,
+            } => {
                 println!("Running dynamics at a given vector of times.");
                 println!("Times: {:?}", times);
+                match model {
+                    Model::Sde { dt } => {
+                        println!("Using SDE model with an internal time step.");
+                        println!("Time step: {dt:?}");
+                    }
+                    Model::Branching { .. } => println!("Using a branching process."),
+                }
             }
             SimType::ExitTime {
-                model: _,
+                ref model,
                 low,
                 high,
+                step,
             } => {
                 println!("Finding exit time from a given bound.");
                 println!("Low bound: {}", low);
                 println!("Upper bound: {}", high);
+                println!("Time step size: {}", step);
+                match model {
+                    Model::Sde { dt } => {
+                        println!("Using SDE model with an internal time step.");
+                        println!("Time step: {dt:?}");
+                    }
+                    Model::Branching { .. } => println!("Using a branching process."),
+                }
             }
-        }
-        match model {
-            Model::Sde { .. } => {
-                println!("Using SDE model with an internal time step.");
-                println!("Time step: {dt:?}");
-            }
-            Model::Branching { .. } => println!("Using a branching process."),
         }
     }
 
@@ -166,27 +160,39 @@ fn main() {
         .o
         .map(|p| std::fs::File::create(p).expect("Output path should be openable"));
 
-    let params = par_from_model(model);
-
     let mut df: DataFrame = match args.simulation {
-        SimType::ExitTime { model, low, high } => {
+        SimType::ExitTime {
+            model,
+            low,
+            high,
+            step,
+        } => {
             let results: Vec<f64> = seeds
                 .iter()
                 .progress()
                 .map(|seed| {
                     let mut rng = ChaCha20Rng::seed_from_u64(*seed);
-                    let f = match model {
+                    match model {
                         Model::Branching { .. } => {
-                            |x, y| popfeedback::sample_branching_at_time(&params, x, y, &mut rng)
+                            let fun = |x, y| {
+                                popfeedback::sample_branching_at_time(&params, x, y, &mut rng)
+                            };
+                            popfeedback::exit_time(args.n, low, high, step, fun)
                         }
-                        Model::Sde { .. } => {
-                            |x, y| popfeedback::sample_sde_at_time(&params, x, y, dt, &mut rng)
+                        Model::Sde { dt } => {
+                            let fun =
+                                |x, y| popfeedback::sample_sde_at_time(&params, x, y, dt, &mut rng);
+                            let n0: f64 = args.n.into();
+                            popfeedback::exit_time(n0, low, high, step, fun)
                         }
-                    };
-                    popfeedback::exit_time(args.n, low, high, dt, f)
+                    }
                 })
                 .collect();
-            df!()
+            df!(
+            "Seed" => seeds,
+            "Exit Time" => results,
+                    )
+            .expect("Data is created by us and should never fail")
         }
         SimType::DynSample { model, times } => {
             let results: Vec<Vec<f64>> = seeds
@@ -202,7 +208,7 @@ fn main() {
                             };
                             popfeedback::sample_at_times(args.n, &times, fun)
                         }
-                        Model::Sde { .. } => {
+                        Model::Sde { dt } => {
                             let fun = |x: f64, y| {
                                 popfeedback::sample_sde_at_time(&params, x, y, dt, &mut rng)
                             };

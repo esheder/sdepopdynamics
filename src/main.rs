@@ -8,9 +8,9 @@ use rand_chacha::ChaCha20Rng;
 #[derive(Parser, Debug)]
 #[command(author, version, about)]
 struct Cli {
-    /// Which model to use
+    /// Which case to run
     #[command(subcommand)]
-    model: Model,
+    simulation: SimType,
 
     /// Random number generator seed
     #[arg(short, long, num_args = 1.., value_delimiter = ' ', value_name = "Seed", default_values = ["48"])]
@@ -34,11 +34,40 @@ struct Cli {
 }
 
 #[derive(Debug, Subcommand)]
+enum SimType {
+    /// Dynamic sampling
+    DynSample {
+        /// Sampling model
+        #[command(subcommand)]
+        model: Model,
+
+        /// Sample times
+        #[arg(short, long, num_args = 1.., value_delimiter = ' ', value_name = "Times")]
+        times: Vec<f64>,
+    },
+
+    /// Exit time
+    ExitTime {
+        /// Sampling model
+        #[command(subcommand)]
+        model: Model,
+
+        /// Low population bound
+        #[arg(short, long, value_name = "LowerBound")]
+        low: u32,
+
+        /// High population bound
+        #[arg(short, long, value_name = "UpperBound")]
+        high: u32,
+    },
+}
+
+#[derive(Debug, Subcommand)]
 enum Model {
     /// Branching process
     Branching {
         #[command(flatten)]
-        ex: ExArgs,
+        ex: Params,
     },
 
     /// Stochastic Differential Equation
@@ -48,18 +77,21 @@ enum Model {
         dt: f64,
 
         #[command(flatten)]
-        ex: ExArgs,
+        ex: Params,
     },
 }
 
-#[derive(Debug, Args)]
-struct ExArgs {
-    /// Sample times
-    #[arg(short, long, num_args = 1.., value_delimiter = ' ', value_name = "Times")]
-    times: Vec<f64>,
-
-    #[command(flatten)]
-    params: Params,
+fn par_from_model(model: Model) -> Parameters {
+    let ex = match model {
+        Model::Sde { dt: _, ex } => ex,
+        Model::Branching { ex } => ex,
+    };
+    if let Some(path) = &ex.path.as_ref() {
+        Parameters::from_json_file(path)
+    } else {
+        let v: Vec<f64> = ex.values.as_deref().unwrap().to_vec();
+        Parameters::from_vec(&v)
+    }
 }
 
 #[derive(Args, Debug)]
@@ -81,17 +113,18 @@ fn main() {
         _ => args.seeds,
     };
 
-    let (dt, ex) = match &args.model {
-        Model::Sde { dt, ex } => (dt, ex),
-        Model::Branching { ex } => (&0., ex),
+    let model = match args.simulation {
+        SimType::DynSample { model, times: _ } => model,
+        SimType::ExitTime {
+            model,
+            low: _,
+            high: _,
+        } => model,
     };
 
-    let par = &ex.params;
-    let params = if let Some(path) = par.path.as_ref() {
-        Parameters::from_json_file(path)
-    } else {
-        let v: Vec<f64> = par.values.as_deref().unwrap().to_vec();
-        Parameters::from_vec(&v)
+    let (dt, params) = match model {
+        Model::Sde { dt, ex } => (dt, ex),
+        Model::Branching { ex } => (0., ex),
     };
 
     if args.v {
@@ -101,10 +134,27 @@ fn main() {
         }
         println!("Seeds: {seeds:?}");
         println!("Initial population: {}", args.n);
-        println!("Times: {:?}", ex.times);
-        match &args.model {
-            Model::Sde { .. } => println!("Time step: {dt:?}"),
-            Model::Branching { .. } => (),
+        match args.simulation {
+            SimType::DynSample { model: _, times } => {
+                println!("Running dynamics at a given vector of times.");
+                println!("Times: {:?}", times);
+            }
+            SimType::ExitTime {
+                model: _,
+                low,
+                high,
+            } => {
+                println!("Finding exit time from a given bound.");
+                println!("Low bound: {}", low);
+                println!("Upper bound: {}", high);
+            }
+        }
+        match model {
+            Model::Sde { .. } => {
+                println!("Using SDE model with an internal time step.");
+                println!("Time step: {dt:?}");
+            }
+            Model::Branching { .. } => println!("Using a branching process."),
         }
     }
 
@@ -116,29 +166,57 @@ fn main() {
         .o
         .map(|p| std::fs::File::create(p).expect("Output path should be openable"));
 
-    let results: Vec<Vec<f64>> = seeds
-        .iter()
-        .progress()
-        .map(|seed| {
-            let mut rng = ChaCha20Rng::seed_from_u64(*seed);
+    let params = par_from_model(model);
 
-            match &args.model {
-                Model::Branching { .. } => {
-                    let fun = |x, y| popfeedback::sample_branching_at_time(&params, x, y, &mut rng);
-                    popfeedback::sample_at_times(args.n, &ex.times, fun)
-                }
-                Model::Sde { .. } => {
-                    let fun =
-                        |x: f64, y| popfeedback::sample_sde_at_time(&params, x, y, *dt, &mut rng);
-                    popfeedback::sample_at_times(args.n, &ex.times, fun)
-                }
-            }
-        })
-        .collect();
-    let mut df: DataFrame = df!(
-        "Seed" => seeds.iter().zip(std::iter::repeat(ex.times.len())).flat_map(|(v, n)| std::iter::repeat_n(v,n)).copied().collect::<Vec<u64>>(),
-        "Time" => &ex.times.iter().cycle().take(ex.times.len()*seeds.len()).copied().collect::<Vec<f64>>(),
-        "Population" => results.into_iter().flatten().collect::<Vec<f64>>()).expect("Data is created by us and should never fail");
+    let mut df: DataFrame = match args.simulation {
+        SimType::ExitTime { model, low, high } => {
+            let results: Vec<f64> = seeds
+                .iter()
+                .progress()
+                .map(|seed| {
+                    let mut rng = ChaCha20Rng::seed_from_u64(*seed);
+                    let f = match model {
+                        Model::Branching { .. } => {
+                            |x, y| popfeedback::sample_branching_at_time(&params, x, y, &mut rng)
+                        }
+                        Model::Sde { .. } => {
+                            |x, y| popfeedback::sample_sde_at_time(&params, x, y, dt, &mut rng)
+                        }
+                    };
+                    popfeedback::exit_time(args.n, low, high, dt, f)
+                })
+                .collect();
+            df!()
+        }
+        SimType::DynSample { model, times } => {
+            let results: Vec<Vec<f64>> = seeds
+                .iter()
+                .progress()
+                .map(|seed| {
+                    let mut rng = ChaCha20Rng::seed_from_u64(*seed);
+
+                    match model {
+                        Model::Branching { .. } => {
+                            let fun = |x, y| {
+                                popfeedback::sample_branching_at_time(&params, x, y, &mut rng)
+                            };
+                            popfeedback::sample_at_times(args.n, &times, fun)
+                        }
+                        Model::Sde { .. } => {
+                            let fun = |x: f64, y| {
+                                popfeedback::sample_sde_at_time(&params, x, y, dt, &mut rng)
+                            };
+                            popfeedback::sample_at_times(args.n, &times, fun)
+                        }
+                    }
+                })
+                .collect();
+            df!(
+        "Seed" => seeds.iter().zip(std::iter::repeat(times.len())).flat_map(|(v, n)| std::iter::repeat_n(v,n)).copied().collect::<Vec<u64>>(),
+        "Time" => times.iter().cycle().take(times.len()*seeds.len()).copied().collect::<Vec<f64>>(),
+        "Population" => results.into_iter().flatten().collect::<Vec<f64>>()).expect("Data is created by us and should never fail")
+        }
+    };
     if let Some(mut f) = outfile {
         let _ = ParquetWriter::new(&mut f)
             .finish(&mut df)

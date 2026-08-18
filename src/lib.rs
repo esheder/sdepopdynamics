@@ -279,6 +279,41 @@ where
         .collect()
 }
 
+/// High order function to take sampling function that does one sample at a time and use it to
+/// find the first time at which we leave some band of population size.
+///
+/// # Arguments
+///
+/// * n0 - Initial population size. Usually a u32 or the like
+/// * low - Low band to exit at. Usually a u32 or the like
+/// * high - High band to exit at. Usually a u32 or the like.
+/// * dt - Time step size
+/// * f - The sampling function that can sample a new population at a future time.
+///
+/// # Examples
+///
+/// ```
+/// use popfeedback::{Parameters, sample_sde_at_time, exit_time};
+/// use rand::rng;
+/// let par = Parameters {a1: 1., a2: 1., b1: 0., b2: 0., I: 500., multiplicity: vec![0.5, 0.5]};
+/// let func = |x: f64, y| sample_sde_at_time(&par, x, y, 1e-4, &mut rng());
+/// exit_time(1000., 900., 1100., 1e-3, func);
+///
+/// ```
+pub fn exit_time<F, N>(n0: N, low: N, high: N, dt: f64, mut f: F) -> f64
+where
+    F: FnMut(N, f64) -> N,
+    N: Into<f64> + Copy + PartialOrd,
+{
+    let mut now = 0.;
+    let mut n: N = n0;
+    while low < n && n < high {
+        n = f(n, dt);
+        now += dt;
+    }
+    now
+}
+
 #[cfg(test)]
 mod tests {
 
@@ -340,5 +375,35 @@ mod tests {
         let times = [10., 20., 30., 40., 50.];
         let pop = super::sample_at_times(5000_u32, &times, branch);
         assert_eq!(pop.len(), times.len());
+    }
+
+    #[test]
+    fn exit_time_outside_bounds_is_0() {
+        let p = super::Parameters {
+            a1: 1.,
+            a2: 1.,
+            b1: 1.,
+            b2: 1.,
+            I: 0.,
+            multiplicity: vec![1.],
+        };
+        let sde = |x: f64, y: f64| super::sample_sde_at_time(&p, x, y, 1e-4, &mut rand::rng());
+        let exit = super::exit_time(4., 20., 100., 1e-3, sde);
+        assert_eq!(exit, 0.);
+    }
+
+    #[test]
+    fn exit_time_in_bounds_positive() {
+        let p = super::Parameters {
+            a1: 1.,
+            a2: 1.,
+            b1: 1e-8,
+            b2: 1e-4,
+            I: 400.,
+            multiplicity: vec![0.25, 0.75],
+        };
+        let sde = |x: f64, y| super::sample_sde_at_time(&p, x, y, 1e-4, &mut rand::rng());
+        let exit = super::exit_time(50., 20., 100., 1e-3, sde);
+        assert!(exit > 0., "Exit time not positive: {}", exit);
     }
 }

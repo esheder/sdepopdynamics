@@ -4,6 +4,7 @@ use polars::prelude::{df, DataFrame, ParquetWriter};
 use popfeedback::Parameters;
 use rand_chacha::rand_core::SeedableRng;
 use rand_chacha::ChaCha20Rng;
+use std::time::Instant;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about)]
@@ -167,12 +168,13 @@ fn main() {
             high,
             step,
         } => {
-            let results: Vec<f64> = seeds
+            let (results, computation_times): (Vec<f64>, Vec<f64>) = seeds
                 .iter()
                 .progress()
                 .map(|seed| {
                     let mut rng = ChaCha20Rng::seed_from_u64(*seed);
-                    match model {
+                    let start = Instant::now();
+                    let exit_time = match model {
                         Model::Branching { .. } => {
                             let fun = |x, y| {
                                 popfeedback::sample_branching_at_time(&params, x, y, &mut rng)
@@ -185,12 +187,14 @@ fn main() {
                             let n0: f64 = args.n.into();
                             popfeedback::exit_time(n0, low, high, step, fun)
                         }
-                    }
+                    };
+                    (exit_time, start.elapsed().as_secs_f64())
                 })
-                .collect();
+                .unzip();
             df!(
             "Seed" => seeds,
             "Exit Time" => results,
+            "Computation Time" => computation_times,
                     )
             .expect("Data is created by us and should never fail")
         }

@@ -1,8 +1,7 @@
 use clap::{Args, Parser, Subcommand};
-use indicatif::ProgressIterator;
+use indicatif::ProgressBar;
 use polars::prelude::{df, DataFrame, ParquetWriter};
 use popfeedback::Parameters;
-use rand_chacha::rand_core::SeedableRng;
 use rand_chacha::ChaCha20Rng;
 use std::time::Instant;
 
@@ -32,6 +31,10 @@ struct Cli {
     /// Debug flag
     #[arg(short, long)]
     debug: bool,
+
+    /// Number of threads to sample paths on, results do not depend on it [default: all CPUs]
+    #[arg(short = 'j', long, value_name = "Threads")]
+    threads: Option<usize>,
 
     /// Model parameters
     #[command(flatten)]
@@ -157,6 +160,15 @@ fn main() {
         return;
     }
 
+    if let Some(threads) = args.threads {
+        rayon::ThreadPoolBuilder::new()
+            .num_threads(threads)
+            .build_global()
+            .expect("The global thread pool is only set up here");
+    }
+
+    let progress = ProgressBar::new(seeds.len() as u64);
+
     let outfile = args
         .o
         .map(|p| std::fs::File::create(p).expect("Output path should be openable"));
@@ -168,28 +180,26 @@ fn main() {
             high,
             step,
         } => {
-            let (results, computation_times): (Vec<f64>, Vec<f64>) = seeds
-                .iter()
-                .progress()
-                .map(|seed| {
-                    let mut rng = ChaCha20Rng::seed_from_u64(*seed);
+            let (results, computation_times): (Vec<f64>, Vec<f64>) =
+                popfeedback::sample_seeds(&seeds, |rng: &mut ChaCha20Rng| {
                     let start = Instant::now();
                     let exit_time = match model {
                         Model::Branching { .. } => {
-                            let fun = |x, y| {
-                                popfeedback::sample_branching_at_time(&params, x, y, &mut rng)
-                            };
+                            let fun =
+                                |x, y| popfeedback::sample_branching_at_time(&params, x, y, rng);
                             popfeedback::exit_time(args.n, low, high, step, fun)
                         }
                         Model::Sde { dt } => {
                             let fun =
-                                |x, y| popfeedback::sample_sde_at_time(&params, x, y, dt, &mut rng);
+                                |x, y| popfeedback::sample_sde_at_time(&params, x, y, dt, rng);
                             let n0: f64 = args.n.into();
                             popfeedback::exit_time(n0, low, high, step, fun)
                         }
                     };
+                    progress.inc(1);
                     (exit_time, start.elapsed().as_secs_f64())
                 })
+                .into_iter()
                 .unzip();
             df!(
             "Seed" => seeds,
@@ -199,34 +209,30 @@ fn main() {
             .expect("Data is created by us and should never fail")
         }
         SimType::DynSample { model, times } => {
-            let results: Vec<Vec<f64>> = seeds
-                .iter()
-                .progress()
-                .map(|seed| {
-                    let mut rng = ChaCha20Rng::seed_from_u64(*seed);
-
-                    match model {
+            let results: Vec<Vec<f64>> =
+                popfeedback::sample_seeds(&seeds, |rng: &mut ChaCha20Rng| {
+                    let path = match model {
                         Model::Branching { .. } => {
-                            let fun = |x, y| {
-                                popfeedback::sample_branching_at_time(&params, x, y, &mut rng)
-                            };
+                            let fun =
+                                |x, y| popfeedback::sample_branching_at_time(&params, x, y, rng);
                             popfeedback::sample_at_times(args.n, &times, fun)
                         }
                         Model::Sde { dt } => {
-                            let fun = |x: f64, y| {
-                                popfeedback::sample_sde_at_time(&params, x, y, dt, &mut rng)
-                            };
+                            let fun =
+                                |x: f64, y| popfeedback::sample_sde_at_time(&params, x, y, dt, rng);
                             popfeedback::sample_at_times(args.n, &times, fun)
                         }
-                    }
-                })
-                .collect();
+                    };
+                    progress.inc(1);
+                    path
+                });
             df!(
         "Seed" => seeds.iter().zip(std::iter::repeat(times.len())).flat_map(|(v, n)| std::iter::repeat_n(v,n)).copied().collect::<Vec<u64>>(),
         "Time" => times.iter().cycle().take(times.len()*seeds.len()).copied().collect::<Vec<f64>>(),
         "Population" => results.into_iter().flatten().collect::<Vec<f64>>()).expect("Data is created by us and should never fail")
         }
     };
+    progress.finish();
     if let Some(mut f) = outfile {
         let _ = ParquetWriter::new(&mut f)
             .finish(&mut df)

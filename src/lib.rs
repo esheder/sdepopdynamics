@@ -1,6 +1,9 @@
 use rand::distr::weighted::WeightedIndex;
 use rand::Rng;
+use rand_chacha::rand_core::SeedableRng;
+use rand_chacha::ChaCha20Rng;
 use rand_distr::{Distribution, Exp, Normal};
+use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::fs::read_to_string;
@@ -320,8 +323,46 @@ where
     now
 }
 
+/// Run a sampling function once per seed on the current rayon thread pool.
+///
+/// Every call of `f` gets its own random number generator, created from its seed and shared with
+/// nothing else, so a sample path depends only on its seed. It doesn't depend on the number of
+/// threads, on the other seeds, or on the order in which the threads got to it.
+/// The results are in the same order as `seeds`.
+///
+/// To control the number of threads, call this inside [`rayon::ThreadPool::install`] or set up the
+/// global thread pool. By default rayon uses all available CPUs.
+///
+/// # Arguments
+///
+/// * seeds - One random number generator seed per sample path.
+/// * f - The sampling function that creates a single sample path using the given generator.
+///
+/// # Examples
+///
+/// ```
+/// use popfeedback::{Parameters, sample_sde_at_time, sample_seeds};
+/// use rand_chacha::ChaCha20Rng;
+/// let par = Parameters {a1: 1., a2: 1., b1: 0., b2: 0., I: 500., multiplicity: vec![0.5, 0.5]};
+/// let func = |rng: &mut ChaCha20Rng| sample_sde_at_time(&par, 1000, 10., 1e-3, rng);
+/// assert_eq!(sample_seeds(&[1, 2, 3], func), sample_seeds(&[1, 2, 3], func));
+///
+/// ```
+pub fn sample_seeds<T, F>(seeds: &[u64], f: F) -> Vec<T>
+where
+    T: Send,
+    F: Fn(&mut ChaCha20Rng) -> T + Sync,
+{
+    seeds
+        .par_iter()
+        .map(|seed| f(&mut ChaCha20Rng::seed_from_u64(*seed)))
+        .collect()
+}
+
 #[cfg(test)]
 mod tests {
+    use rand_chacha::rand_core::SeedableRng;
+    use rand_chacha::ChaCha20Rng;
 
     #[test]
     fn zero_population_branching_no_immigration_is_zero_forever() {
@@ -411,5 +452,76 @@ mod tests {
         let sde = |x: f64, y| super::sample_sde_at_time(&p, x, y, 1e-4, &mut rand::rng());
         let exit = super::exit_time(50., 20., 100., 1e-3, sde);
         assert!(exit > 0., "Exit time not positive: {}", exit);
+    }
+
+    fn serial_and_on_threads<T, F>(seeds: &[u64], threads: usize, f: F) -> (Vec<T>, Vec<T>)
+    where
+        T: Send,
+        F: Fn(&mut ChaCha20Rng) -> T + Sync,
+    {
+        let serial = seeds
+            .iter()
+            .map(|seed| f(&mut ChaCha20Rng::seed_from_u64(*seed)))
+            .collect();
+        let pool = rayon::ThreadPoolBuilder::new()
+            .num_threads(threads)
+            .build()
+            .unwrap();
+        (serial, pool.install(|| super::sample_seeds(seeds, &f)))
+    }
+
+    #[test]
+    fn sample_seeds_matches_serial_sde() {
+        let p = super::Parameters {
+            a1: 1.,
+            a2: 1.,
+            b1: 1e-8,
+            b2: 1e-4,
+            I: 400.,
+            multiplicity: vec![0.25, 0.75],
+        };
+        let seeds: Vec<u64> = (0..64).collect();
+        let (serial, parallel) = serial_and_on_threads(&seeds, 4, |rng: &mut ChaCha20Rng| {
+            let sde = |x: f64, y| super::sample_sde_at_time(&p, x, y, 1e-2, rng);
+            super::sample_at_times(5000_u32, &[1., 2., 3.], sde)
+        });
+        assert_eq!(serial, parallel);
+    }
+
+    #[test]
+    fn sample_seeds_matches_serial_branching() {
+        let p = super::Parameters {
+            a1: 1.,
+            a2: 1.,
+            b1: 1e-8,
+            b2: 1e-4,
+            I: 400.,
+            multiplicity: vec![0.25, 0.75],
+        };
+        let seeds: Vec<u64> = (0..64).collect();
+        let (serial, parallel) = serial_and_on_threads(&seeds, 4, |rng: &mut ChaCha20Rng| {
+            let branch = |x, y| super::sample_branching_at_time(&p, x, y, rng);
+            super::sample_at_times(500_u32, &[0.1, 0.2, 0.3], branch)
+        });
+        assert_eq!(serial, parallel);
+    }
+
+    #[test]
+    fn sample_seeds_path_does_not_depend_on_other_seeds() {
+        let p = super::Parameters {
+            a1: 1.,
+            a2: 1.,
+            b1: 1e-8,
+            b2: 1e-4,
+            I: 400.,
+            multiplicity: vec![0.25, 0.75],
+        };
+        let sde = |rng: &mut ChaCha20Rng| super::sample_sde_at_time(&p, 5000, 1., 1e-2, rng);
+        let forward: Vec<u64> = (0..64).collect();
+        let backward: Vec<u64> = forward.iter().rev().copied().collect();
+        let mut reversed = super::sample_seeds(&backward, sde);
+        reversed.reverse();
+        assert_eq!(super::sample_seeds(&forward, sde), reversed);
+        assert_eq!(super::sample_seeds(&[63], sde)[0], reversed[63]);
     }
 }
